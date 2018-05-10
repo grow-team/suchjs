@@ -1,0 +1,32 @@
+{
+  "name": "mak",
+  "version": "0.0.1",
+  "description": "Mak is a js library that aim to mock data easily and adaptable",
+  "main": "index.js",
+  "author": "jxz_211@163.com",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^22.2.3",
+    "jest": "^22.4.3",
+    "ts-jest": "^22.4.4",
+    "tslint": "^5.10.0",
+    "typescript": "^2.8.3"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json",
+      "node"
+    ]
+  }
+}
