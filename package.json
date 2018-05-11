@@ -1,9 +1,9 @@
 {
-  "name": "mak",
+  "name": "suchjs",
   "version": "0.0.1",
-  "description": "Mak is a js library that aim to mock data easily and adaptable",
+  "description": "An easy mock tool.",
   "main": "index.js",
-  "author": "jxz_211@163.com",
+  "author": "ONEBOX FE",
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^22.2.3",

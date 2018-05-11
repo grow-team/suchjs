@@ -31,12 +31,53 @@ namespace Mockit{
      */
     protected parseOptions(meta:string):Option{
       const exp = meta.substr(this.type.length);
-      let prev = '';
+      let isInParsing = false;
       let isParamBegin = true;
-      let isStartTrans = false;
-      Utils.map(exp, (char,index) => {
-        
-        prev = char;
+      let skipIndex = Infinity;
+      const showError = (errmsg:string,index:number,char:string):never => {
+        throw new Error(`${errmsg}，位置${index}<字符：${char}>`);
+      };
+      Utils.map(exp, (char,index:number) => {        
+        // 第一个参数的:可以忽略
+        if(index === 0 && char === ':')return;
+        // 如果参数解析尚未开始
+        if(isParamBegin){
+          if(!isInParsing){
+            //解析尚未开始，忽略多余的空格等
+            if(char === '' || char === '\t'){
+              return;
+            }else{
+              isInParsing = true;
+              switch(char){
+                case '{':
+                  break;
+                case '[':
+                case '(':
+                  break;
+                case '<':
+                  break;
+                default:
+                  return showError('不能识别的参数开始符',index,char);
+              }
+            }
+          }else{
+            // 往Parser里添加字符
+
+          }
+        }else{
+          if(char === '' || char === '\t'){
+            // 忽略多余的空格和制表符
+            return;
+          }else{
+            if(char === ':'){
+              // 如果找到:分隔符
+              isParamBegin = true;
+            }else{
+              // 其它字符均抛出异常
+              return showError('缺少正确的参数分隔符',index,char);
+            }
+          }
+        }
       });
       return 
     }
