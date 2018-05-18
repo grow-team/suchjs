@@ -33,13 +33,15 @@ namespace Mockit{
       const exp = meta.substr(this.type.length);
       let isInParsing = false;
       let isParamBegin = true;
-      let skipIndex = Infinity;
+      let skipIndex = -Infinity;
       const showError = (errmsg:string,index:number,char:string):never => {
         throw new Error(`${errmsg}，位置${index}<字符：${char}>`);
       };
       Utils.map(exp, (char,index:number) => {        
         // 第一个参数的:可以忽略
         if(index === 0 && char === ':')return;
+        // 需要跳过的部分，忽略代码
+        if(index <= skipIndex)return;
         // 如果参数解析尚未开始
         if(isParamBegin){
           if(!isInParsing){
@@ -55,6 +57,14 @@ namespace Mockit{
                 case '(':
                   break;
                 case '<':
+                  break;
+                case '#':
+                  const nextChar = exp.charAt(index + 1);
+                  if(nextChar === '['){
+                    skipIndex = index + 1; 
+                  }else{
+                    showError('无法解析的参数开始符，此处可能是"["',index + 1,nextChar);
+                  }
                   break;
                 default:
                   return showError('不能识别的参数开始符',index,char);
