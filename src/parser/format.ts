@@ -1,11 +1,12 @@
 import {ParserInstance} from '../config';
 const instance:ParserInstance =  {
   config: {
-    startTag:['{'],
-    endTag: ['}']
+    startTag:['%'],
+    endTag: []
   },
   parse(){
-    console.log(this.info());
+    const info = this.info();
+    console.log('info is ---',info);
     return {};
   }
 };

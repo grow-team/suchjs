@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
-      "module": "system",
+      "module": "commonjs",
       "noImplicitAny": true,
       "removeComments": true,
       "preserveConstEnums": true,
-      "outFile": "./lib/index.js",
+      "outDir": "./lib",
       "sourceMap": true
   },
   "include": [

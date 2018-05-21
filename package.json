@@ -13,6 +13,7 @@
     "typescript": "^2.8.3"
   },
   "scripts": {
+    "start": "tsc && node lib/parser.js",
     "test": "jest"
   },
   "jest": {
@@ -28,5 +29,8 @@
       "json",
       "node"
     ]
+  },
+  "dependencies": {
+    "systemjs": "^0.21.3"
   }
 }

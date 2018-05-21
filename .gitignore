@@ -1,2 +1,5 @@
 # node modules
 node_modules
+# build 
+#/lib
+#/dist
