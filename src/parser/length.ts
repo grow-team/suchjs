@@ -1,12 +1,16 @@
-import {ParserInstance} from '../config';
-const instance:ParserInstance =  {
+import {ParserInstance, ParamsLength} from '../config';
+const parser:ParserInstance =  {
   config: {
     startTag:['{'],
     endTag: ['}']
   },
-  parse(){
-    console.log(this.info());
-    return {};
+  parse():ParamsLength|never{
+    const {params} = this.info();
+    if(params.length > 2)return this.showError('');
+    return {
+      least: params[0],
+      most: params[params.length - 1]
+    };
   }
 };
-export default instance;
+export default parser;

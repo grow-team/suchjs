@@ -19,17 +19,10 @@ abstract class ParserInterface{
   // 最终获取的信息，参数及开始结束标签
   protected params:string[];
   protected tags:Tags;
-  // 已解析字符
-  protected parsedCode:string;
-  // 当前位置的字符位置索引
-  protected codeIndex:number;
   // 是否已转义
   protected isInTrans:boolean;
-  protected transIndexs:number[];
   // 匹配开始标记相关
-  protected startTagBegin:boolean;
   protected startTagOk:boolean;
-  protected startTagLastIndex:number;
   protected matchedStartTagList:string[];
   protected startTagMatchedSeg:string;
   // 匹配结束标记相关 
@@ -52,17 +45,12 @@ abstract class ParserInterface{
       end: ''
     };
     this.isInTrans = false;
-    this.transIndexs = [];
-    this.codeIndex = 0;
     // 匹配开始标记
     this.startTagMatchedSeg = '';
-    this.startTagBegin = false;
     this.startTagOk = false;
-    this.startTagLastIndex = 0;
     this.matchedStartTagList = [];
     // 匹配结束标记 
-    const endTag = (<ParserConstructor>this.constructor).endTag;
-    this.hasEndTag = endTag.length > 0;
+    this.hasEndTag = (<ParserConstructor>this.constructor).endTag.length > 0;
     this.endTagOk = false;
     this.matchedEndTagList = [];
     this.endTagMatchedSeg = '';
@@ -88,8 +76,9 @@ abstract class ParserInterface{
   }
   // 往Parser里添加code
   addCode(code?:string){
+    const forceEnd = typeof code === 'undefined';
     // 强制结束解析
-    if(typeof code === 'undefined'){
+    if(forceEnd){
       if(!this.hasEndTag){
         if(this.isInTrans){
           return this.showError('错误的结尾转义符')
@@ -107,44 +96,32 @@ abstract class ParserInterface{
       if(this.endTagOk){
         return this.showError('标签已解析完成，不能添加新的解析字符');
       }
-    }
-    //
-    const constr = <ParserConstructor>this.constructor;
-    const {startTag, endTag} = constr;
-    const cur = code.trim();
-    // save parsed code
-    this.parsedCode += code;
-    this.codeIndex += code.length;
-    // startTag not matched yet
-    if(!this.startTagOk){
-      const maybeTags = this.startTagMatchedSeg === '' ? startTag : this.matchedStartTagList;
-      const matched = maybeTags.filter((tag) => {
-        return tag.charAt(this.startTagMatchedSeg.length) === cur;
-      });
-      if(matched.length){
-        if(matched.length === 1){
-          // find the only tag matched
-          this.tags.start = matched[0];
-          return this.startTagOk = true;
-        }else{
+      //
+      const constr = <ParserConstructor>this.constructor;
+      const {startTag, endTag, separator} = constr;
+      // startTag not matched yet
+      if(!this.startTagOk){
+        const maybeTags = this.startTagMatchedSeg === '' ? startTag : this.matchedStartTagList;
+        const matched = maybeTags.filter((tag) => {
+          return tag.charAt(this.startTagMatchedSeg.length) === code;
+        });
+        if(matched.length){
           this.matchedStartTagList = matched;
-          this.startTagMatchedSeg += cur;
-        }
-      }else{
-        return this.showError('解析有误，开始标签不匹配');
-      }
-    }
-    // after matched startTag
-    if(this.startTagOk){
-      if(!this.endTagOk){
-        let needAddToParam = true;
-        if(!this.isInTrans){
-          if(cur === ','){
-            needAddToParam = false;
-            this.paramIndex++;
-          }else if(cur === '\\'){
-            this.isInTrans = true;
+          this.startTagMatchedSeg += code;
+        }else{
+          if(maybeTags.indexOf(this.startTagMatchedSeg) > -1){
+            this.tags.start = this.startTagMatchedSeg;
+            this.startTagOk = true; 
           }else{
+            return this.showError('解析有误，开始标签不匹配');
+          }
+        }
+      }
+      // after matched startTag
+      if(this.startTagOk){
+        if(!this.endTagOk){
+          let needAddToParam = true;
+          if(!this.isInTrans){
             if(this.hasEndTag){
               const hasMatchedSeg = this.endTagMatchedSeg !== '';
               const maybeTags = hasMatchedSeg ? this.matchedEndTagList : endTag;
@@ -154,49 +131,49 @@ abstract class ParserInterface{
               });
               const totalMatched = matched.length;
               if(totalMatched){
-                if(totalMatched === 1){
-                  const end = matched[0];
+                if(totalMatched === 1 && maybeTags.indexOf(nextCode) > -1){
                   this.endTagOk = true;
-                  this.tags.end = end;
+                  this.tags.end = nextCode;
                   needAddToParam = false;
-                  if(end.length > 1){
-                    this.params[this.paramIndex] = this.params[this.paramIndex].slice(0,-(end.length - 1));
+                  if(nextCode.length > 1){
+                    this.params[this.paramIndex] = this.params[this.paramIndex].slice(0, - (nextCode.length - 1));
                   }
                 }else{
                   this.matchedEndTagList = matched;
                   this.endTagMatchedSeg = nextCode;
                 }
               }else{
-                if(hasMatchedSeg){
-                  const findIndex = maybeTags.indexOf(this.endTagMatchedSeg);
-                  if(findIndex > -1){
-                    return this.showError('错误的结束标签');
-                  }else{
-                    this.matchedEndTagList = [];
-                    this.endTagMatchedSeg = '';
-                  }
-                }
+                this.matchedEndTagList = [];
+                this.endTagMatchedSeg = '';
               }
             }
+            if(code === separator){
+              needAddToParam = false;
+              this.paramIndex++;
+            }else if(code === '\\'){
+              this.isInTrans = true;
+            }
+          }else{
+            this.isInTrans = false;
           }
-        }else{
-          this.isInTrans = false;
-        }
-        if(needAddToParam){
-          if(typeof this.params[this.paramIndex] === 'undefined'){
-            this.params[this.paramIndex] = '';
+          if(needAddToParam){
+            if(typeof this.params[this.paramIndex] === 'undefined'){
+              this.params[this.paramIndex] = '';
+            }
+            this.params[this.paramIndex] += code;
           }
-          this.params[this.paramIndex] += code;
         }
-      }else{
-        return this.showError('解析有误，无法识别的结束标签');
       }
     }
   }
-  getParsedCode(){
-    return this.parsedCode;
-  }
-  abstract parse():Object;
+  /**
+   * 
+   * 
+   * @abstract
+   * @returns {Object|never} 
+   * @memberof ParserInterface
+   */
+  abstract parse():Object|never;
 }
 //
 interface ParserList{
@@ -244,7 +221,7 @@ export class Dispatcher{
    * @memberof Dispatcher
    */
   addParser(name:string,config:ParserConfig,parse:()=>void):never|void{
-    const {startTag,endTag} = config;
+    const {startTag,endTag,separator} = config;
     if(this.parsers.hasOwnProperty(name)){
       return this.halt(`${name}的parser已经存在，请查看命名`);
     }
@@ -282,13 +259,13 @@ export class Dispatcher{
     this.parsers[name] = class extends ParserInterface{
       static readonly startTag:any[] = startTag;
       static readonly endTag:any[] = endTag;
+      static readonly separator:string = separator || ',';
       parse(){
         return parse.call(this);
       }
     };
   }
-  protected match(seg:string):never|NormalObject{      
-    console.log('tag pairs',this.tagPairs);
+  protected match(seg:string):never|NormalObject{
     let matchedStart = seg.charAt(0);
     let matchedPairs:string[] = getMatchedPairs(this.tagPairs, matchedStart);
     if(matchedPairs.length === 0){
@@ -326,7 +303,6 @@ export class Dispatcher{
       }
       try{
         Utils.map(seg,(char,index) => {
-          console.log('char is,',char);
           instance.addCode(char);
         });
         instance.addCode();

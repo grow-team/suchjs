@@ -1,5 +1,5 @@
 # node modules
 node_modules
 # build 
-#/lib
-#/dist
+/lib
+/dist
