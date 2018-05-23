@@ -1,3 +1,6 @@
+export type NormalObject = {
+  [index:string]:any
+};
 // mockit
 /**
  * ParamsWrapper接口，一般针对字符串，在mock的数据首或尾添加指定字符，在表达式里用尖括号包裹<a,b>

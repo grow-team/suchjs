@@ -1,44 +1,93 @@
 import * as Config from '../config';
 //
-export abstract class Mockit<T>{
-  protected rules:string[];
-  protected requiredRules:string[];
-  private origRules:string[];
-  protected params:Object;
-  abstract readonly type:string;
-  constructor(params?:Object){
-    if(typeof params === 'object'){
-      this.setParams(params);
-    }
-  }
-  addRule(name:string, fn:()=> T|never, pos?:string){
-    
-  }
-  setParams(params:Object):void|never{
-    const keys = Object.keys(params);
-    const rules = this.rules;
-    const noExists = keys.filter((rule) => {
-      return rules.indexOf(rule) < 0;
-    });
-    if(noExists.length){
-      throw new Error(`无法解析的规则：${noExists.join('&')}`);
+import NormalObject = Config.NormalObject;
+interface ModifierFn<T>{
+  ():T|never;
+}
+interface RuleFn{
+  ():void;
+}
+type Result<T> = T|never;
+export default abstract class Mockit<T>{
+  protected rules:string[] = [];
+  protected ruleFns:NormalObject = {};
+  protected modifiers:string[] = [];
+  protected modifierFns:NormalObject = {};
+  protected params:NormalObject;
+  protected generateFn:undefined|(() => Result<T>);
+  constructor(){}
+  private add(type:"rule"|"modifier", name:string,  fn:RuleFn|ModifierFn<T>, pos?:string):never|void{
+    let target;
+    let fns;
+    if(type === 'rule'){
+      target = this.rules;
+      fns = this.ruleFns;
+    }else if(type === 'modifier') {
+      target = this.modifiers;
+      fns = this.modifierFns;
     }else{
-      this.params = params;
-    }  
-  }
-  
-  make():T|never{
-    const {rules,params} = this;
-    let result:T|never;
-    let dones:string[] = [];
-    for(let i = 0, j = rules.length; i < j; i++){
-      const name = rules[i];
-      if(params.hasOwnProperty(name) && dones.indexOf(name) < 0){
-        
-      }
+      throw new Error('unkonwn type');
     }
-    return ;
-  };
+    if(target.indexOf(name) > -1){
+      throw new Error(`${type} of ${name} already exists`);
+    }else{
+      if(typeof pos === 'undefined' || pos.trim() === ''){
+        target.push(name);
+      }else{
+        let prepend = false;
+        if(pos.charAt(0) === '^'){
+          prepend = true;
+          pos = pos.slice(1);
+        }
+        if(pos === ''){
+          target.unshift(name);
+        }else{
+          const findIndex = target.indexOf(pos);
+          if(findIndex < 0){
+            throw new Error(`no exists ${type} name of ${pos}`);
+          }else{
+            target.splice(findIndex + (prepend ? 0 : 1), 0, name);
+          }
+        }
+      }
+      fns[name] = fn;
+    }
+  }
 
+  addRule(name:string, fn:()=> void, pos?:string){
+    return this.add('rule', name, fn, pos);
+  }
+
+  addModifier(name:string,fn:() => Result<T>, pos?:string){
+    return this.add('modifier', name, fn, pos);
+  }
+
+  
+  setParams(params:NormalObject):void|never{
+    this.params = params; 
+    // 
+    const {rules} = this;
+    if(rules.length){
+      rules.map((fnName) => {
+        this.ruleFns[fnName].call(this);
+      })
+    } 
+  }
+
+
+  reGenerate(fn?:()=>Result<T>){
+    this.generateFn = fn;
+  }
+
+  make():Result<T>{
+    const {modifiers,params} = this;
+    let result = typeof this.generateFn === 'function'? this.generateFn.call(this) : this.generate();
+    for(let i = 0, j = modifiers.length; i < j; i++){
+      const name = modifiers[i];
+      result = this.modifierFns[name].call(this,result);
+    }
+    return result;
+  };
+  abstract generate():Result<T>;
   abstract test(target:T):boolean;
 }
