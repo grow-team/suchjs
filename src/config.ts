@@ -40,6 +40,18 @@ export interface ParamsFormat{
   format:string;
 }
 /**
+ * ParamsFunc接口，通过函数对数据做进一步的处理
+ * 
+ * @export
+ * @interface ParamsFunc
+ */
+export interface ParamsFunc{
+  [index:number]:{
+    name:string;
+    params?:any[]
+  }
+}
+/**
  * 
  * 
  * @export
