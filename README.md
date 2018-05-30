@@ -29,7 +29,7 @@ An easy mock tool.
   用来表示长度，可针对字符串或者数组，用来限定个数
 
 - <PREFIX?,SUFFIX?>  
-  主要针对字符串，在字符串的首尾添加固定的一些字符
+  主要针对字符串，设定字符串以xxx开始或者xxx结尾
 
 - %FORMAT  
   主要针对数字、日期类型等，用来对数据进行格式化 
@@ -95,6 +95,6 @@ An easy mock tool.
   }]
   [{
     "author": "Halo",
-    "loves": ["abc","def","hijk"]
+    "loves": ["abcde","defghaa","hijsgdsk"]
   }]
   ```
