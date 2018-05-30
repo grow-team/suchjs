@@ -7,5 +7,4 @@ Utils.map(ParserList,(item,key) => {
   if((<string>key).indexOf('_') === 0)return;
   dispatcher.addParser(<string>key,item.config,item.parse);
 });
-console.log(dispatcher.parse(`(1,100]:{10,20}:<aaags,dddd>:%03d:#[base=123;ok=true]`));
 export default dispatcher;

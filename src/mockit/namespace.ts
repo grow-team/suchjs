@@ -1,10 +1,10 @@
 import * as Config from '../config';
 //
 import NormalObject = Config.NormalObject;
-interface ModifierFn<T>{
-  ():T|never;
+export interface ModifierFn<T>{
+  (res:T):T|never;
 }
-interface RuleFn{
+export interface RuleFn{
   ():void;
 }
 type Result<T> = T|never;
@@ -54,11 +54,11 @@ export default abstract class Mockit<T>{
     }
   }
 
-  addRule(name:string, fn:()=> void, pos?:string){
+  addRule(name:string, fn:RuleFn, pos?:string){
     return this.add('rule', name, fn, pos);
   }
 
-  addModifier(name:string,fn:() => Result<T>, pos?:string){
+  addModifier(name:string,fn:ModifierFn<T>, pos?:string){
     return this.add('modifier', name, fn, pos);
   }
 

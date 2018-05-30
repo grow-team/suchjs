@@ -13,7 +13,7 @@
     "typescript": "^2.8.3"
   },
   "scripts": {
-    "start": "tsc && node lib/parser.js",
+    "start": "tsc && node lib/such.js",
     "test": "jest"
   },
   "jest": {
@@ -30,7 +30,5 @@
       "node"
     ]
   },
-  "dependencies": {
-    "systemjs": "^0.21.3"
-  }
+  "dependencies": {}
 }
