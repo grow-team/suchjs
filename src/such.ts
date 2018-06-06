@@ -55,10 +55,14 @@ class ArrKeyMap<T>{
   }
   set(key:Xpath,value:T){
     this.hashs[this.buildKey(key)] = value;
+    console.log('now hashs is ---',this.hashs);
     return this;
   }
   get(key:Xpath):T{
     return this.hashs[this.buildKey(key)];
+  }
+  clear(){
+    this.hashs = {};
   }
 }
 
@@ -69,11 +73,10 @@ class ArrKeyMap<T>{
  */
 class Mocker{
   readonly target:any;
-  readonly parent:Mocker = null;
   readonly config:NormalObject = {};
-  readonly required:boolean = true;
   readonly xpath:Xpath;
   readonly type:string;
+  readonly dataType:string;
   readonly isRoot:boolean;
   readonly mockFn:(dpath:Xpath)=>any;
   constructor(options:MockerOptions){
@@ -83,21 +86,29 @@ class Mocker{
     this.config = config || {};
     this.isRoot = xpath.length === 0;
     const dataType = typeOf(this.target).toLowerCase();
+    this.dataType = dataType;
     let {min,max,oneOf,alwaysArray} = this.config;
     const hasLength = !isNaN(min);
     if(dataType === 'array'){
-      // e.g {"a":["b","c"]}
-      if(!hasLength){
-        const mockers = target.map((item:any,index:number) => {
-          const nowXpath = xpath.concat(index);
-          let instance;
+      const getInstance = (index?:number):Mocker => {
+        const mIndex = !isNaN(index) ? index : makeRandom(0,target.length - 1);
+        const nowXpath = xpath.concat(mIndex);
+        let instance = instances.get(nowXpath);
+        console.log('saved instance --',instance);
+        if(!(instance instanceof Mocker)){
           instance = new Mocker({
-            target: item,
+            target: target[mIndex],
             xpath: nowXpath,
             instances: instances.set(nowXpath,instance),
-            datas: datas
+            datas
           });
-          return instance;
+        }
+        return instance;
+      };
+      if(!hasLength){
+        // e.g {"a":["b","c"]}
+        const mockers = target.map((item:any,index:number) => {
+          return getInstance(index);
         });
         this.mockFn = (dpath) => {
           let result:any[] = [];
@@ -110,28 +121,66 @@ class Mocker{
           return result;
         };
       }else{
+        const makeArrFn = (dpath:Xpath,instance:Mocker|Mocker[],total?:number) => {
+          const result:any[] = [];
+          const makeInstance = typeOf(instance) === 'Array' ? (i:number) => (<Mocker[]>instance)[i] : (i:number) => <Mocker>instance;
+          total = !isNaN(total) ? total : makeRandom(min,max);
+          for(let i = 0; i < total; i++){
+            const nowDpath = dpath.concat(i);
+            const value = makeInstance(i).mock(nowDpath);
+            result[i] = value;
+            datas.set(nowDpath,value);
+          }
+          return result;
+        };
+        const makeOptional = (dpath:Xpath,instance:Mocker,total:number):never|any => {
+          let result; 
+          if(total > 1){
+            throw new Error(`optional func of the total param can not more than 1`);
+          }else if(total === 1){
+            result = instance.mock(dpath);
+          }
+          datas.set(dpath,result);
+          return result;
+        };
+        let resultFn:(dpath:Xpath,instance:Mocker)=>any;
         if(oneOf){
-          // e.g {"a:[0,1]":[{b:1},{"c":1},{"d":1}]}
           if(alwaysArray){
+            // e.g {"a:[0,1]":[{b:1},{"c":1},{"d":1}]}
+            resultFn = makeArrFn;
+          }else{  
+            // e.g {"a:{0,5}":["amd","cmd","umd"]}
+            resultFn = (dpath,instance) => {
+              const total = makeRandom(min,max);
+              if(total <= 1)return makeOptional(dpath,instance,total);
+              return makeArrFn(dpath,instance,total);
+            };
+          }
+          this.mockFn = (dpath) => {
+            const instance = getInstance();
+            return resultFn(dpath,instance);
+          };
+        }else{
+          //e.g {"a[1,3]":["amd","cmd","umd"]}
+          //e.g {"a{0,3}":["amd","cmd","umd"]}
+          const makeRandArrFn = (dpath:Xpath,total?:number) => {
+            total = !isNaN(total) ? total : makeRandom(min,max);
+            const instances = Array.apply(null,new Array(total)).map(() => {
+              return getInstance();
+            });
+            return makeArrFn(dpath, instances, total);
+          };
+          if(alwaysArray || min > 1){
             this.mockFn = (dpath) => {
-              const result:any[] = [];
-              const mIndex = makeRandom(0,target.length);
-              const nowXpath = xpath.concat(mIndex);
-              let instance = instances.get(nowXpath);
-              if(!(instance instanceof Mocker)){
-                instance = new Mocker({
-                  target: target[mIndex],
-                  xpath: nowXpath,
-                  instances: instances.set(nowXpath,instance),
-                  datas
-                });
-              }
+              return makeRandArrFn(dpath);
             };
           }else{
-            
+            this.mockFn = (dpath) => {
+              const total = makeRandom(min,max);
+              if(total <= 1)return makeOptional(dpath,getInstance(),total);
+              return makeRandArrFn(dpath,total);
+            };
           }
-        }else{
-        
         }
       }
     }else if(dataType === 'object'){
@@ -141,6 +190,7 @@ class Mocker{
         if(target.hasOwnProperty(i)){
           const val = target[i];
           const {key,config} = Mocker.parseKey(i);
+          console.log('key is --',key);
           keys.push({
             key,
             target: val,
@@ -179,6 +229,7 @@ class Mocker{
     }else{
       let match;
       if(dataType === 'string' && (match = target.match(/^:([A-z]\w*)/)) && mockitList.hasOwnProperty(match[1])){
+        this.type = match[1];
         const klass = (<NormalObject>mockitList)[match[1]];
         const instance = new klass;
         const meta = target.replace(match[0],'').replace(/^\s*:\s*/,'');
@@ -192,9 +243,9 @@ class Mocker{
   }
   static parseKey(key:string){
     const rule = /(\??)(:?)(?:\{(\d+)(?:,(\d+))?}|\[(\d+)(?:,(\d+))?])?$/;
-    let match;
+    let match:any[];
     let config:NormalObject = {};
-    if(match = key.match(rule)){
+    if((match = key.match(rule)).length && match[0] !== ''){
       let [all, query, colon, lMin, lMax, aMin, aMax] = match;
       const hasArrLen = aMin !== undefined;
       const hasNormalLen = lMin !== undefined;
@@ -210,8 +261,8 @@ class Mocker{
         if(max <= min){
           throw new Error(`the max of ${max} is less than ${min}`);
         }
-        config.min = min;
-        config.max = max;
+        config.min = Number(min);
+        config.max = Number(max);
       }else if(config.oneOf){
         config.min = config.max = 1;
       }
@@ -244,6 +295,7 @@ export default class Such{
   readonly instances:ArrKeyMap<Mocker>;
   readonly datas:ArrKeyMap<any>;
   protected struct:NormalObject;
+  private initail:boolean = false;
   constructor(target:any,options?:SuchConfig){
     this.target = target;
     this.instances = new ArrKeyMap();
@@ -263,6 +315,11 @@ export default class Such{
    * @memberof Such
    */
   a(){
+    if(!this.initail){
+      this.initail = true;
+    }else{
+      this.datas.clear();
+    }
     return this.mocker.mock([]);
   }
   /**
@@ -277,3 +334,25 @@ export default class Such{
     return options && options.instance ? ret : ret.a();
   }
 }
+
+const data = Such.as({
+  "module:": ["amd","cmd","umd"]
+});
+const eg = Such.as({
+  "module{1,3}": ["amd","cmd","umd"]
+},{
+  instance: true 
+});
+const eg2 = Such.as({
+  "books{1,3}": [{
+    "author": "Bill",
+    "date?": "2011-09-15"
+  }]
+},{
+  instance: true
+});
+console.time('模拟');
+for(let i = 1, total = 100; i < total; i++){
+  console.log(eg2.a());
+}
+console.timeEnd('模拟');
