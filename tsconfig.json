@@ -5,7 +5,10 @@
       "removeComments": true,
       "preserveConstEnums": true,
       "outDir": "./lib",
-      "sourceMap": true
+      "sourceMap": true,
+      "lib": [
+          "es6"
+      ]
   },
   "include": [
       "src/**/*"

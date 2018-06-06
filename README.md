@@ -98,3 +98,49 @@ An easy mock tool.
     "loves": ["abcde","defghaa","hijsgdsk"]
   }]
   ```
+- one of,use the colon ":".
+  ```javascript
+  Such.as({    
+      "module:":["amd", "cmd", "umd"]  
+  });
+  is equal to
+  Such.as({
+      "module:{1}": ["amd", "cmd", "umd"]
+  })
+  ``` 
+  case:
+  ```javascript
+  [{
+    "module": "amd"
+  }]
+  [{
+    "module": "cmd"
+  }]
+  ```
+- always array
+  ```javascript
+  Such.as({    
+      "module[1]":["amd", "cmd", "umd"]  
+  });
+  ```
+  case:
+  ```javascript
+  [{
+    "module": ["amd"]
+  }]
+  ```
+- one of and length
+  ```javascript
+  Such.as({    
+      "module:[2,3]":["amd", "cmd", "umd"]  
+  });
+  ```
+  case:
+  ```javascript
+  [{
+    "module": ["amd", "amd"]
+  }]
+  [{
+    "module": ["cmd", "cmd", "cmd"]
+  }]
+  ```
