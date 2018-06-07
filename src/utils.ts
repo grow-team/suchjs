@@ -56,3 +56,13 @@ export const deepLoop = (obj:any,fn:(key:string|number,value:any,parent:Object,p
   }
   return;
 };
+export const makeRandom = (min:number, max:number):number => {
+  if(min === max){
+    return min;
+  }else{
+    return min + Math.floor(Math.random() * (max + 1 - min));
+  }
+};
+export const isOptional = ():boolean => {
+  return Math.round(Math.random()) === 0
+};

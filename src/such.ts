@@ -1,6 +1,5 @@
-
 import {NormalObject} from './config';
-import {typeOf,deepLoop, valueof, map} from './utils';
+import {typeOf, deepLoop, valueof, map, makeRandom, isOptional} from './utils';
 import * as mockitList from './mockit';
 import parser from './parser';
 /**
@@ -42,19 +41,9 @@ interface MockerOptions{
   xpath:Array<string|number>;
   instances: ArrKeyMap<Mocker>;
   datas:ArrKeyMap<any>;
-  config?: KeyRuleInterface;
+  config?:KeyRuleInterface;
 }
 type Xpath = (string|number)[];
-const makeRandom = (min:number, max:number):number => {
-  if(min === max){
-    return min;
-  }else{
-    return min + Math.floor(Math.random() * (max + 1 - min));
-  }
-};
-const isOptional = ():boolean => {
-  return Math.round(Math.random()) === 0
-};
 /**
  *
  *
@@ -104,7 +93,6 @@ class ArrKeyMap<T>{
     this.keyHashs = {};
   }
 }
-
 /**
  * 
  * 
