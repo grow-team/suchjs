@@ -39,8 +39,7 @@ interface MockitInstances{
 interface MockerOptions{
   target:any;
   xpath:Array<string|number>;
-  instances: ArrKeyMap<Mocker>;
-  datas:ArrKeyMap<any>;
+  parent?:Mocker;
   config?:KeyRuleInterface;
 }
 type Xpath = (string|number)[];
@@ -103,19 +102,33 @@ class Mocker{
   readonly config:NormalObject = {};
   readonly xpath:Xpath;
   readonly type:string;
+  readonly instances?:ArrKeyMap<Mocker>;
+  readonly datas?:ArrKeyMap<any>;
+  readonly root:Mocker;
+  readonly parent:Mocker;
   readonly dataType:string;
   readonly isRoot:boolean;
   readonly mockFn:(dpath:Xpath)=>any;
-  constructor(options:MockerOptions){
-    const {target,xpath,config,instances,datas} = options;
+  constructor(options:MockerOptions,rootInstances?:ArrKeyMap<Mocker>,rootDatas?:ArrKeyMap<any>){
+    const {target,xpath,config,parent} = options;
     this.target = target;
     this.xpath = xpath;
     this.config = config || {};
     this.isRoot = xpath.length === 0;
+    if(this.isRoot){
+      this.instances = rootInstances;
+      this.datas = rootDatas;
+      this.root = this;
+      this.parent = this;
+    }else{
+      this.parent = parent;
+      this.root = parent.root;
+    }
     const dataType = typeOf(this.target).toLowerCase();
-    this.dataType = dataType;
-    let {min,max,oneOf,alwaysArray} = this.config;
+    const {min,max,oneOf,alwaysArray} = this.config;
+    const {instances,datas} = this.root;
     const hasLength = !isNaN(min);
+    this.dataType = dataType;
     if(dataType === 'array'){
       const getInstance = (index?:number):Mocker => {
         const mIndex = !isNaN(index) ? index : makeRandom(0,target.length - 1);
@@ -125,8 +138,7 @@ class Mocker{
           instance = new Mocker({
             target: target[mIndex],
             xpath: nowXpath,
-            instances,
-            datas
+            parent: this
           });
           instances.set(nowXpath,instance);
         }
@@ -241,8 +253,7 @@ class Mocker{
                 target,
                 config,
                 xpath: nowXpath,
-                instances: instances,
-                datas: datas
+                parent: this
               });
               instances.set(nowXpath,instance);
             }
@@ -300,7 +311,13 @@ class Mocker{
       config
     };
   }
-  
+  /**
+   *
+   *
+   * @param {Xpath} [dpath]
+   * @returns
+   * @memberof Mocker
+   */
   mock(dpath?:Xpath){
     const {optional} = this.config;
     dpath = this.isRoot ? [] : dpath;
@@ -331,10 +348,8 @@ export default class Such{
     this.mocker = new Mocker({
       target,
       xpath: [],
-      config: options && options.config,
-      instances: this.instances,
-      datas: this.datas
-    });
+      config: options && options.config
+    },this.instances,this.datas);
   }
   /**
    * 
