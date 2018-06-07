@@ -3,43 +3,58 @@ import {NormalObject} from './config';
 import {typeOf,deepLoop, valueof, map} from './utils';
 import * as mockitList from './mockit';
 import parser from './parser';
-
-
+/**
+ *
+ *
+ * @interface SuchConfig
+ */
 interface SuchConfig{
   instance?: boolean;
   config?: KeyRuleInterface;
 }
+/**
+ *
+ *
+ * @interface KeyRuleInterface
+ */
 interface KeyRuleInterface{
   min?:number;
   max?:number;
-  optional:boolean;
+  optional?:boolean;
   oneOf?:boolean;
   alwaysArray?:boolean;
 }
+/**
+ *
+ *
+ * @interface MockitInstances
+ */
 interface MockitInstances{
   [index:string]: any;
 }
+/**
+ *
+ *
+ * @interface MockerOptions
+ */
 interface MockerOptions{
   target:any;
   xpath:Array<string|number>;
-  config?: KeyRuleInterface;
   instances: ArrKeyMap<Mocker>;
   datas:ArrKeyMap<any>;
+  config?: KeyRuleInterface;
 }
-
-const makeRandom = (min:number,max:number):number => {
+type Xpath = (string|number)[];
+const makeRandom = (min:number, max:number):number => {
   if(min === max){
     return min;
   }else{
     return min + Math.floor(Math.random() * (max + 1 - min));
   }
 };
-
-const isOptional = () => {
+const isOptional = ():boolean => {
   return Math.round(Math.random()) === 0
 };
-
-type Xpath = (string|number)[];
 /**
  *
  *
@@ -48,21 +63,45 @@ type Xpath = (string|number)[];
  */
 class ArrKeyMap<T>{
   private hashs:{[index:string]:T} = {};
+  private keyHashs: {[index:string]:Xpath} = {};
+  private rootKey:string = '__ROOT__';
   private buildKey(key:Xpath){
     return key.reduce((prev,next) => {
       return prev + '["' + ('' + next).replace(/"/g,'\\"') + '"]';
-    },key.shift());
+    },this.rootKey);
   }
+  /**
+   *
+   *
+   * @param {Xpath} key
+   * @param {T} value
+   * @returns
+   * @memberof ArrKeyMap
+   */
   set(key:Xpath,value:T){
-    this.hashs[this.buildKey(key)] = value;
-    console.log('now hashs is ---',this.hashs);
+    const saveKey = this.buildKey(key);
+    this.hashs[saveKey] = value;
+    this.keyHashs[saveKey] = key;
     return this;
   }
+  /**
+   *
+   *
+   * @param {Xpath} key
+   * @returns {T}
+   * @memberof ArrKeyMap
+   */
   get(key:Xpath):T{
     return this.hashs[this.buildKey(key)];
   }
+  /**
+   *
+   *
+   * @memberof ArrKeyMap
+   */
   clear(){
     this.hashs = {};
+    this.keyHashs = {};
   }
 }
 
@@ -94,14 +133,14 @@ class Mocker{
         const mIndex = !isNaN(index) ? index : makeRandom(0,target.length - 1);
         const nowXpath = xpath.concat(mIndex);
         let instance = instances.get(nowXpath);
-        console.log('saved instance --',instance);
         if(!(instance instanceof Mocker)){
           instance = new Mocker({
             target: target[mIndex],
             xpath: nowXpath,
-            instances: instances.set(nowXpath,instance),
+            instances,
             datas
           });
+          instances.set(nowXpath,instance);
         }
         return instance;
       };
@@ -123,7 +162,7 @@ class Mocker{
       }else{
         const makeArrFn = (dpath:Xpath,instance:Mocker|Mocker[],total?:number) => {
           const result:any[] = [];
-          const makeInstance = typeOf(instance) === 'Array' ? (i:number) => (<Mocker[]>instance)[i] : (i:number) => <Mocker>instance;
+          const makeInstance = instance instanceof Mocker ? (i:number) => <Mocker>instance : (i:number) => (<Mocker[]>instance)[i];
           total = !isNaN(total) ? total : makeRandom(min,max);
           for(let i = 0; i < total; i++){
             const nowDpath = dpath.concat(i);
@@ -190,7 +229,6 @@ class Mocker{
         if(target.hasOwnProperty(i)){
           const val = target[i];
           const {key,config} = Mocker.parseKey(i);
-          console.log('key is --',key);
           keys.push({
             key,
             target: val,
@@ -215,9 +253,10 @@ class Mocker{
                 target,
                 config,
                 xpath: nowXpath,
-                instances: instances.set(nowXpath,instance),
+                instances: instances,
                 datas: datas
               });
+              instances.set(nowXpath,instance);
             }
             const value = instance.mock(dpath.concat(key));
             result[key] = value;
@@ -258,7 +297,7 @@ class Mocker{
         if(max === undefined){
           max = min;
         }
-        if(max <= min){
+        if(max < min){
           throw new Error(`the max of ${max} is less than ${min}`);
         }
         config.min = Number(min);
@@ -274,9 +313,10 @@ class Mocker{
     };
   }
   
-  mock(dpath:Xpath){
+  mock(dpath?:Xpath){
     const {optional} = this.config;
-    if(optional && isOptional()){
+    dpath = this.isRoot ? [] : dpath;
+    if(this.isRoot && optional && isOptional()){
       return;
     }
     return this.mockFn(dpath);
@@ -320,7 +360,7 @@ export default class Such{
     }else{
       this.datas.clear();
     }
-    return this.mocker.mock([]);
+    return this.mocker.mock();
   }
   /**
    * 
@@ -334,25 +374,3 @@ export default class Such{
     return options && options.instance ? ret : ret.a();
   }
 }
-
-const data = Such.as({
-  "module:": ["amd","cmd","umd"]
-});
-const eg = Such.as({
-  "module{1,3}": ["amd","cmd","umd"]
-},{
-  instance: true 
-});
-const eg2 = Such.as({
-  "books{1,3}": [{
-    "author": "Bill",
-    "date?": "2011-09-15"
-  }]
-},{
-  instance: true
-});
-console.time('模拟');
-for(let i = 1, total = 100; i < total; i++){
-  console.log(eg2.a());
-}
-console.timeEnd('模拟');
