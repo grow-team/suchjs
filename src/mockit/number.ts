@@ -1,5 +1,6 @@
 import Mockit,{ModifierFn,RuleFn} from './namespace';
 import * as Config from '../config';
+import { isOptional } from '../utils';
 const factor = (type:number) => {
   const epsilon = (<Config.NormalObject>Number).EPSILON || Math.pow(2,-52);
   switch(type){    
@@ -26,11 +27,14 @@ export default class ToNumber extends Mockit<number>{
     }));
   }
   generate(){
-    const {Count,Format} = this.params;
+    const {Count} = this.params;
     let result:number;
     if(Count){
       const {min,max,containsMin,containsMax} = Count;
       
+    }else{
+      result = Math.random() * Math.pow(10, Math.floor(10 * Math.random()));
+      result = isOptional() ? -result : result;
     }
     return result;
   }

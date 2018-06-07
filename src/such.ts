@@ -271,8 +271,10 @@ class Mocker{
         const klass = (<NormalObject>mockitList)[match[1]];
         const instance = new klass;
         const meta = target.replace(match[0],'').replace(/^\s*:\s*/,'');
-        const params = parser.parse(meta);
-        instance.setParams(params);
+        if(meta !== ''){
+          const params = parser.parse(meta);
+          instance.setParams(params);
+        }
         this.mockFn = () => instance.make();
       }else{
         this.mockFn = () => target;

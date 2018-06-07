@@ -13,7 +13,7 @@ export default abstract class Mockit<T>{
   protected ruleFns:NormalObject = {};
   protected modifiers:string[] = [];
   protected modifierFns:NormalObject = {};
-  protected params:NormalObject;
+  protected params:NormalObject = {};
   protected generateFn:undefined|(() => Result<T>);
   constructor(){}
   private add(type:"rule"|"modifier", name:string,  fn:RuleFn|ModifierFn<T>, pos?:string):never|void{
