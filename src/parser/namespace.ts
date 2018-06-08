@@ -1,8 +1,5 @@
 import * as Utils from '../utils';
-import * as Configs from '../config';
-
-import NormalObject = Utils.NormalObject;
-import ParserConfig = Configs.ParserConfig;
+import {NormalObject,ParserConfig} from '../config';
 interface Tags{
   start:string;
   end:string;
@@ -307,7 +304,10 @@ export class Dispatcher{
         });
         instance.addCode();
         if(instance.isEndOk()){
-          return instance.parse();
+          console.log('result is-',curName,instance.parse());
+          return {
+            [curName]: instance.parse()
+          };
         }else{
           throw new Error('错误的解析');
         }
@@ -325,7 +325,7 @@ export class Dispatcher{
    * @param {string} code 
    * @memberof Dispatcher
    */
-  parse(code:string):NormalObject[]|never{
+  parse(code:string):NormalObject|never{
     const segs:string[] = [];
     let isInTrans = false;
     let seg:string = '';
@@ -349,8 +349,10 @@ export class Dispatcher{
     }
     segs.push(seg.trim());
     //
-    return segs.map((seg) => {
-      return this.match(seg);
+    const result = {};
+    segs.map((seg) => {
+      Object.assign(result,this.match(seg));
     });
+    return result;
   }
 }

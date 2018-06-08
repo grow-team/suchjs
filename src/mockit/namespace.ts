@@ -5,7 +5,7 @@ export interface ModifierFn<T>{
   (res:T):T|never;
 }
 export interface RuleFn{
-  ():void;
+  (cur:NormalObject):void;
 }
 type Result<T> = T|never;
 export default abstract class Mockit<T>{
@@ -50,7 +50,9 @@ export default abstract class Mockit<T>{
           }
         }
       }
-      fns[name] = fn;
+      fns[name] = () => {
+        fn.call(this,this.params[name]);
+      };
     }
   }
 
@@ -62,15 +64,24 @@ export default abstract class Mockit<T>{
     return this.add('modifier', name, fn, pos);
   }
 
-  
-  setParams(params:NormalObject):void|never{
-    this.params = params; 
+  setParams(params:NormalObject,value:undefined):void|never;
+  setParams(key:string,value:NormalObject):void|never;
+  setParams(key:any,value:any):void|never{
+    if(typeof key === 'object' && value === undefined){
+      this.params = key; 
+    }else if(typeof key === 'string'){
+      this.params[key] = value;
+    }
     // 
     const {rules} = this;
     if(rules.length){
-      rules.map((fnName) => {
-        this.ruleFns[fnName].call(this);
-      })
+      try{
+        rules.map((fnName) => {
+          this.ruleFns[fnName].call(this);
+        });
+      }catch(e){
+        throw e;
+      }
     } 
   }
 
@@ -81,10 +92,12 @@ export default abstract class Mockit<T>{
 
   make():Result<T>{
     const {modifiers,params} = this;
-    let result = typeof this.generateFn === 'function'? this.generateFn.call(this) : this.generate();
+    let result = typeof this.generateFn === 'function'? this.generateFn.call(this) : this.generate(); 
     for(let i = 0, j = modifiers.length; i < j; i++){
       const name = modifiers[i];
-      result = this.modifierFns[name].call(this,result);
+      if(params.hasOwnProperty(name)){
+        result = this.modifierFns[name].call(this,result);
+      }
     }
     return result;
   };

@@ -1,8 +1,8 @@
 import Mockit,{ModifierFn,RuleFn} from './namespace';
-import * as Config from '../config';
+import {NormalObject} from '../config';
 import { isOptional } from '../utils';
 const factor = (type:number) => {
-  const epsilon = (<Config.NormalObject>Number).EPSILON || Math.pow(2,-52);
+  const epsilon = (<NormalObject>Number).EPSILON || Math.pow(2,-52);
   switch(type){    
     case 2:
       return 1 - Math.random();
@@ -18,6 +18,18 @@ const factor = (type:number) => {
 export default class ToNumber extends Mockit<number>{
   constructor(){
     super();
+    this.addRule('Count',(Count:NormalObject) => {
+      let {min,max,containsMin,containsMax} = Count;
+      if(isNaN(min)){
+        throw new Error(`the min param expect a number,but got ${min}`);
+      }
+      if(isNaN(max)){
+        throw new Error(`the max param expect a number,but got ${max}`);
+      }
+      if(Number(min) >  Number(max)){
+        throw new Error(`the min number ${min} is big than the max number ${max}`);
+      }
+    });
     this.addRule('Format',() => {
       const {Format} = this.params;
       
@@ -31,7 +43,7 @@ export default class ToNumber extends Mockit<number>{
     let result:number;
     if(Count){
       const {min,max,containsMin,containsMax} = Count;
-      
+      result = +min + (max - min) * factor(1 * containsMin + 2 * containsMax);
     }else{
       result = Math.random() * Math.pow(10, Math.floor(10 * Math.random()));
       result = isOptional() ? -result : result;
