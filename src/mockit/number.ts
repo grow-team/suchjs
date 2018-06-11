@@ -18,6 +18,7 @@ const factor = (type:number) => {
 export default class ToNumber extends Mockit<number>{
   constructor(){
     super();
+    // Count
     this.addRule('Count',(Count:NormalObject) => {
       let {min,max,containsMin,containsMax} = Count;
       if(isNaN(min)){
@@ -30,10 +31,12 @@ export default class ToNumber extends Mockit<number>{
         throw new Error(`the min number ${min} is big than the max number ${max}`);
       }
     });
-    this.addRule('Format',() => {
-      const {Format} = this.params;
+    // Format rule
+    this.addRule('Format',(Format:NormalObject) => {
+      const {format} = Format;
       
     });
+    //
     this.addModifier('Format',<ModifierFn<number>>((result:number) => {
       return result;
     }));
