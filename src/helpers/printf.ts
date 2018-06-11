@@ -1,8 +1,7 @@
-const rule = /^%([#-+0 ]*?)([1-9]\d*)?(?:\.(\d*))?([dfeEoxXi])?$/;
+export const rule = /^%([#\-+0 ]*)?([1-9]\d*)?(?:\.(\d*))?([dfeEoxXi])$/;
 const parse = (format:string) => {
-  if(!rule.test(format)){
-    throw new Error('wrong format param');
-  }else{
+  let match:(string[]|null);
+  if((match = format.match(rule)) !== null && match[0] !== ''){
     const conf = {
       align: 'right',
       type: '',
@@ -12,7 +11,7 @@ const parse = (format:string) => {
       minWidth: 1,
       hash: false
     };
-    const {$1:flags,$2:width,$3:precision,$4:type} = RegExp;
+    const [_,flags,width,precision,type] = match;
     const isFloatType = ['f','e','E'].indexOf(type) > -1;
     // eg:%.2d %.2o
     if(precision !== undefined && !isFloatType){
@@ -57,15 +56,20 @@ const parse = (format:string) => {
       }
     }
     return conf;
+  }else{
+    throw new Error('Wrong format param');
   }
 };
 const printf = (format:string,target:number) => {
   const conf = parse(format);
   let result:string = '';
+  if(target < 0){
+    conf.prefix = '-';
+  }
   switch(conf.type){
     case 'd':
     case 'i':
-      result = '' + Math.round(target);
+      result = '' + (target > 0 ? Math.floor(target) : Math.ceil(target));
       if(conf.minWidth > (result.length + conf.prefix.length)){
         
       }

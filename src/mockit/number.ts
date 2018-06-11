@@ -1,6 +1,7 @@
 import Mockit,{ModifierFn,RuleFn} from './namespace';
 import {NormalObject} from '../config';
 import { isOptional } from '../utils';
+import printf,{rule as formatRule} from '../helpers/printf';
 const factor = (type:number) => {
   const epsilon = (<NormalObject>Number).EPSILON || Math.pow(2,-52);
   switch(type){    
@@ -18,7 +19,7 @@ const factor = (type:number) => {
 export default class ToNumber extends Mockit<number>{
   constructor(){
     super();
-    // Count
+    // Count Rule
     this.addRule('Count',(Count:NormalObject) => {
       let {min,max,containsMin,containsMax} = Count;
       if(isNaN(min)){
@@ -34,11 +35,15 @@ export default class ToNumber extends Mockit<number>{
     // Format rule
     this.addRule('Format',(Format:NormalObject) => {
       const {format} = Format;
-      
+      if(formatRule.test(format)){
+        
+      }else{
+        throw new Error(`Wrong format rule(${format})`);
+      }
     });
-    //
-    this.addModifier('Format',<ModifierFn<number>>((result:number) => {
-      return result;
+    // Format Modifier
+    this.addModifier('Format',<ModifierFn<number>>((result:number,Format:NormalObject) => {
+      return printf(Format.format,result);
     }));
   }
   generate(){

@@ -379,3 +379,8 @@ export default class Such{
     return options && options.instance ? ret : ret.a();
   }
 }
+
+const example = Such.as(':number[1,10]:%02d',{
+  instance: true
+});
+console.log(example.a());

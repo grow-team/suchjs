@@ -8,7 +8,7 @@ const parser:ParserInstance =  {
     const {params} = this.info();
     if(params.length !== 1)return this.showError('');
     return {
-      format: params[0]
+      format: '%' + params[0]
     };
   }
 };
