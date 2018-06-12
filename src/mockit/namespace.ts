@@ -2,10 +2,10 @@ import * as Config from '../config';
 //
 import NormalObject = Config.NormalObject;
 export interface ModifierFn<T>{
-  (res:T):T|never;
+  (res:T):T|string|never;
 }
 export interface RuleFn{
-  (cur:NormalObject):void;
+  (cur:NormalObject):void|NormalObject;
 }
 type Result<T> = T|never;
 export default abstract class Mockit<T>{

@@ -62,16 +62,24 @@ const parse = (format:string) => {
 };
 const printf = (format:string,target:number) => {
   const conf = parse(format);
-  let result:string = '';
-  if(target < 0){
-    conf.prefix = '-';
-  }
+  let result:number|string; 
   switch(conf.type){
     case 'd':
     case 'i':
-      result = '' + (target > 0 ? Math.floor(target) : Math.ceil(target));
-      if(conf.minWidth > (result.length + conf.prefix.length)){
-        
+      console.log('conf is ',conf,';result is ',target);
+      result = target > 0 ? Math.floor(target) : Math.ceil(target);
+      if(result < 0){
+        conf.prefix = '-';
+        result = ('' + result).slice(1);
+      }else{
+        result = '' + result;
+      }
+      const width = conf.minWidth;
+      const fn = conf.align === 'right' ? 'padStart' : 'padEnd';
+      if(conf.fill === '0'){
+        return conf.prefix + (<string>result)[fn](width - conf.prefix.length,conf.fill);
+      }else{
+        return (conf.prefix + result)[fn](width,conf.fill);
       }
   }
 };

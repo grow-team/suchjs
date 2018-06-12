@@ -380,7 +380,7 @@ export default class Such{
   }
 }
 
-const example = Such.as(':number[1,10]:%02d',{
+const example = Such.as(':number[3,20]:%d',{
   instance: true
 });
 console.log(example.a());
