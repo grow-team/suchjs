@@ -1,4 +1,6 @@
-export const rule = /^%([#\-+0 ]*)?([1-9]\d*)?(?:\.(\d*))?([dfeEoxXi])$/;
+import { NormalObject } from "../utils";
+
+export const rule = /^%([#\-+0 ]*)?([1-9]\d*)?(?:\.([1-9]\d*))?([dfeEoxXi])$/;
 const parse = (format:string) => {
   let match:(string[]|null);
   if((match = format.match(rule)) !== null && match[0] !== ''){
@@ -60,27 +62,77 @@ const parse = (format:string) => {
     throw new Error('Wrong format param');
   }
 };
-const printf = (format:string,target:number) => {
-  const conf = parse(format);
+const printf = (format:string|NormalObject,target:number):string|number => {
+  const conf = typeof format === 'string' ? parse(format) : format;
   let result:number|string; 
   switch(conf.type){
     case 'd':
     case 'i':
-      console.log('conf is ',conf,';result is ',target);
+    case 'f':
+      if(conf.type === 'f'){
+        const e = Math.pow(10, conf.digits);
+        result = Math.round(target * e) / e;
+      }else{
+        result = target > 0 ? Math.floor(target) : Math.ceil(target);
+      }
+      if(result < 0){
+        conf.prefix = '-';
+        result = result.toString().slice(1);
+      }else{
+        result = result.toString();
+      }
+      break;  
+    case 'o': 
+    case 'x':
+    case 'X':
       result = target > 0 ? Math.floor(target) : Math.ceil(target);
       if(result < 0){
         conf.prefix = '-';
-        result = ('' + result).slice(1);
-      }else{
-        result = '' + result;
       }
-      const width = conf.minWidth;
-      const fn = conf.align === 'right' ? 'padStart' : 'padEnd';
-      if(conf.fill === '0'){
-        return conf.prefix + (<string>result)[fn](width - conf.prefix.length,conf.fill);
+      if(conf.type === 'o'){
+        result = Math.abs(result).toString(8);
+        if(conf.hash){
+          result = '0' + result;
+        }else{
+          result = result.toString();
+        }
       }else{
-        return (conf.prefix + result)[fn](width,conf.fill);
+        result = Math.abs(result).toString(16);
+        const isUpper = conf.type === 'X';
+        if(conf.hash){
+          conf.prefix += isUpper ? '0X' : '0x';
+        }
+        if(isUpper){
+          result = result.toString().toUpperCase();
+        }
       }
+      break;
+    case 'e':
+    case 'E':
+      const e = Math.floor(Math.log10(target));
+      let point = e.toString();
+      if(e < 0){
+        if(e >= -9){
+          point = '-0' + point.charAt(1)
+        }
+      }else{
+        if(e <= 9){
+          point = '0' + point;
+        }
+        point = '+' + point;
+      }
+      point = conf.type + point;
+      return printf(Object.assign({},conf,{
+        type: 'f',
+        minWidth: conf.width - point.length
+      }),target/Math.pow(10,e)) + point;
+  }
+  const width = conf.minWidth;
+  const fn = conf.align === 'right' ? 'padStart' : 'padEnd';
+  if(conf.fill === '0'){
+    return conf.prefix + (<string>result)[fn](width - conf.prefix.length,conf.fill);
+  }else{
+    return (conf.prefix + result)[fn](width,conf.fill);
   }
 };
 export default printf;
