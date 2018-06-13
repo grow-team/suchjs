@@ -26,10 +26,9 @@ export interface ParamsLength{
  * @interface ParamsCount
  */
 export interface ParamsCount{
-  min:string;
   containsMin:boolean;
-  max:string;
   containsMax:boolean;
+  range:(string|number)[]
 }
 /**
  * ParamsFormat接口，一般针对数组、日期类型，设置要format的格式，在表达式里用%开头来表示

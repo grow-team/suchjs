@@ -21,7 +21,12 @@ export default class ToNumber extends Mockit<number>{
     super();
     // Count Rule
     this.addRule('Count',(Count:NormalObject) => {
-      let {min,max,containsMin,containsMax} = Count;
+      const {range} = Count;
+      const size = range.length;
+      if(size !== 2){
+        throw new Error(size < 2 ? `the count param must has the min and the max params` : `the count param length should be 2,but got ${size}`);
+      }
+      const [min,max] = range;
       if(isNaN(min)){
         throw new Error(`the min param expect a number,but got ${min}`);
       }
@@ -35,9 +40,7 @@ export default class ToNumber extends Mockit<number>{
     // Format rule
     this.addRule('Format',(Format:NormalObject) => {
       const {format} = Format;
-      if(formatRule.test(format)){
-        
-      }else{
+      if(!formatRule.test(format)){
         throw new Error(`Wrong format rule(${format})`);
       }
     });
@@ -50,7 +53,8 @@ export default class ToNumber extends Mockit<number>{
     const {Count} = this.params;
     let result:number;
     if(Count){
-      const {min,max,containsMin,containsMax} = Count;
+      const {range,containsMin,containsMax} = Count;
+      const [min,max] = range;
       result = +min + (max - min) * factor(1 * containsMin + 2 * containsMax);
     }else{
       result = Math.random() * Math.pow(10, Math.floor(10 * Math.random()));
@@ -61,5 +65,4 @@ export default class ToNumber extends Mockit<number>{
   test(){
     return true;
   }
-  
 }

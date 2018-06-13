@@ -1,6 +1,6 @@
 import { NormalObject } from "../utils";
 
-export const rule = /^%([#\-+0 ]*)?([1-9]\d*)?(?:\.([1-9]\d*))?([dfeEoxXi])$/;
+export const rule = /^%([#\-+0 ]*)?([1-9]\d*)?(?:\.([1-9]\d*))?([dfeEoxXi])(%)?$/;
 const parse = (format:string) => {
   let match:(string[]|null);
   if((match = format.match(rule)) !== null && match[0] !== ''){
@@ -11,9 +11,10 @@ const parse = (format:string) => {
       prefix: '',
       digits: 6,
       minWidth: 1,
-      hash: false
+      hash: false,
+      percent: false
     };
-    const [_,flags,width,precision,type] = match;
+    const [_,flags,width,precision,type,percent] = match;
     const isFloatType = ['f','e','E'].indexOf(type) > -1;
     // eg:%.2d %.2o
     if(precision !== undefined && !isFloatType){
@@ -22,6 +23,7 @@ const parse = (format:string) => {
     conf.type = type;
     conf.digits = precision !== undefined ? +precision : conf.digits;
     conf.minWidth = width !== undefined ? +width : conf.minWidth;
+    conf.percent = percent === '%';
     // parse flags
     if(flags !== undefined){
       const segs = flags.split('');
@@ -122,17 +124,22 @@ const printf = (format:string|NormalObject,target:number):string|number => {
         point = '+' + point;
       }
       point = conf.type + point;
-      return printf(Object.assign({},conf,{
+      return printf(Object.assign({}, conf, {
         type: 'f',
-        minWidth: conf.width - point.length
-      }),target/Math.pow(10,e)) + point;
+        minWidth: conf.width - point.length,
+        percent: false
+      }), target / Math.pow(10,e)) + point + (conf.percent ? '%' : '');
   }
   const width = conf.minWidth;
   const fn = conf.align === 'right' ? 'padStart' : 'padEnd';
   if(conf.fill === '0'){
-    return conf.prefix + (<string>result)[fn](width - conf.prefix.length,conf.fill);
+    result = conf.prefix + (<string>result)[fn](width - conf.prefix.length,conf.fill);
   }else{
-    return (conf.prefix + result)[fn](width,conf.fill);
+    result = (conf.prefix + result)[fn](width,conf.fill);
   }
+  if(conf.percent){
+    result += '%';
+  }
+  return result;
 };
 export default printf;
