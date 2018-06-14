@@ -146,13 +146,18 @@ export default abstract class Mockit<T>{
    * @returns {Result<T>}
    * @memberof Mockit
    */
-  make():Result<T>{
+  make(Such?:NormalObject):Result<T>{
     const {modifiers,params} = this;
     let result = typeof this.generateFn === 'function'? this.generateFn.call(this) : this.generate(); 
     for(let i = 0, j = modifiers.length; i < j; i++){
       const name = modifiers[i];
       if(params.hasOwnProperty(name)){
-        result = this.modifierFns[name].call(this,result,this.params[name]);
+        const fn = this.modifierFns[name];
+        const args = [result,this.params[name]];
+        if(fn.length === 3){
+          args.push(Such);
+        }
+        result = fn.apply(this,args);
       }
     }
     return result;

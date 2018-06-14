@@ -24,7 +24,7 @@ export default class ToNumber extends Mockit<number>{
       const {range} = Count;
       const size = range.length;
       if(size !== 2){
-        throw new Error(size < 2 ? `the count param must has the min and the max params` : `the count param length should be 2,but got ${size}`);
+        throw new Error(size < 2 ? `the count param must have the min and the max params` : `the count param length should be 2,but got ${size}`);
       }
       const [min,max] = range;
       if(isNaN(min)){

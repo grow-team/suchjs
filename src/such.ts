@@ -1,4 +1,4 @@
-import {NormalObject} from './config';
+import {NormalObject,suchRule} from './config';
 import {typeOf, deepLoop, valueof, map, makeRandom, isOptional} from './utils';
 import * as mockitList from './mockit';
 import parser from './parser';
@@ -266,7 +266,7 @@ class Mocker{
       };
     }else{
       let match;
-      if(dataType === 'string' && (match = target.match(/^:([A-z]\w*)/)) && mockitList.hasOwnProperty(match[1])){
+      if(dataType === 'string' && (match = target.match(suchRule)) && mockitList.hasOwnProperty(match[1])){
         this.type = match[1];
         const klass = (<NormalObject>mockitList)[match[1]];
         const instance = new klass;
@@ -275,7 +275,7 @@ class Mocker{
           const params = parser.parse(meta);
           instance.setParams(params);
         }
-        this.mockFn = () => instance.make();
+        this.mockFn = () => instance.make(Such);
       }else{
         this.mockFn = () => target;
       }
@@ -298,7 +298,7 @@ class Mocker{
         if(max === undefined){
           max = min;
         }
-        if(max < min){
+        if(Number(max) < Number(min)){
           throw new Error(`the max of ${max} is less than ${min}`);
         }
         config.min = Number(min);
@@ -380,7 +380,32 @@ export default class Such{
   }
 }
 
-const example = Such.as(':number[2400]:%05e%',{
+const example = Such.as({
+  'title': '这是一个测试',
+  'desc': 'suchjs是个描述性的模拟库',
+  'tech{1,3}': [{
+    'chinese': ':string[\\u4E00,\\u9FA5]:{10,20}:<"写到：","。。。">',
+    'uppercase': ':string[65,90]:{5,10}',
+    'lowercase': ':string[97,122]:{10,20}',
+    'numbers': ':string[48,57]:{8}',
+    'underline': '_',
+    'alphaNumericDash': ':string[48-57,97-122,65-90,95]:{15}',
+    'optional?': '描述可有可无',
+    'module?{2}': ['amd','cmd','umd'],
+    'module1{3}': ['amd','cmd','umd'],
+    'module2:{3}': ['amd','cmd','umd'],
+    'number1': ':number(0,100]:%0.2f',
+    'color': ':number[0x000000,0xffffff]:%#8x',
+    'number3': ':number[2,5]:%d',
+    'list': [{
+      'item{3}': [{
+        test:':string{10}'  
+      }]
+    }]
+  }]
+},{
   instance: true
 });
-console.log(example.a());
+for(let i = 0, j = 2; i < j; i++){
+  console.log(JSON.stringify(example.a(),null,2));
+}

@@ -18,7 +18,7 @@ const parse = (format:string) => {
     const isFloatType = ['f','e','E'].indexOf(type) > -1;
     // eg:%.2d %.2o
     if(precision !== undefined && !isFloatType){
-      throw new Error(`Type of "${type}" should not has a percision width`);
+      throw new Error(`Type of "${type}" should not have a percision width`);
     }
     conf.type = type;
     conf.digits = precision !== undefined ? +precision : conf.digits;
