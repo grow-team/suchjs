@@ -1,5 +1,5 @@
 import {NormalObject,suchRule} from './config';
-import {typeOf, deepLoop, valueof, map, makeRandom, isOptional} from './utils';
+import {typeOf, makeRandom, isOptional} from './helpers/utils';
 import * as mockitList from './mockit';
 import parser from './parser';
 /**
@@ -377,6 +377,19 @@ export default class Such{
   static as(target:any,options?:SuchConfig){
     const ret = new Such(target,options)
     return options && options.instance ? ret : ret.a();
+  }
+  
+  static define(type:string,fromType:string,param:string){
+    if(!mockitList.hasOwnProperty(type)){
+      (<NormalObject>mockitList)[type] = class extends (<NormalObject>mockitList)[fromType]{
+        constructor(){
+          super();  
+        }
+        
+      }
+    }else{
+      throw new Error(`The type "${type}" has defined yet.`);
+    }
   }
 }
 

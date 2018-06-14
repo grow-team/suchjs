@@ -15,6 +15,7 @@ export default abstract class Mockit<T>{
   protected modifierFns:NormalObject = {};
   protected params:NormalObject = {};
   protected generateFn:undefined|(() => Result<T>);
+  protected frozenRules:string[] = [];
   /**
    *Creates an instance of Mockit.
    * @memberof Mockit

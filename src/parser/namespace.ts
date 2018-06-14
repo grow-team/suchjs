@@ -1,4 +1,4 @@
-import * as Utils from '../utils';
+import * as Utils from '../helpers/utils';
 import {NormalObject,ParserConfig} from '../config';
 interface Tags{
   start:string;

@@ -1,4 +1,4 @@
-import { NormalObject } from "../utils";
+import { NormalObject } from "./utils";
 
 export const rule = /^%([#\-+0 ]*)?([1-9]\d*)?(?:\.([1-9]\d*))?([dfeEoxXi])(%)?$/;
 const parse = (format:string) => {

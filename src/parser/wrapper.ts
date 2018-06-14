@@ -1,4 +1,4 @@
-import {ParserInstance, ParamsCount, ParamsWrapper} from '../config';
+import {ParserInstance, ParamsWrapper} from '../config';
 const parser:ParserInstance =  {
   config: {
     startTag:['<'],

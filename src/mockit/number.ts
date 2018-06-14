@@ -1,7 +1,8 @@
 import Mockit,{ModifierFn,RuleFn} from './namespace';
 import {NormalObject} from '../config';
-import { isOptional } from '../utils';
+import { isOptional } from '../helpers/utils';
 import printf,{rule as formatRule} from '../helpers/printf';
+
 const factor = (type:number) => {
   const epsilon = (<NormalObject>Number).EPSILON || Math.pow(2,-52);
   switch(type){    
