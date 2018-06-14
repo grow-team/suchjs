@@ -46,7 +46,7 @@ An easy mock tool.
   ```javascript
   Such.as({  
     "book{3,5}": [{  
-      "author": "Zrag"  
+      "author": ":string[97,122]:{4,6}"  
     }]  
   });
   ```   
@@ -54,30 +54,30 @@ An easy mock tool.
   ```javascript
   {
     "book":[{
-      "author": "Yooa"
+      "author": "yoaa"
     },{
-      "author": "Kola",
+      "author": "kolaa",
     },{
-      "author": "Roma"
+      "author": "romas"
     },{
-      "author": "Halo"
+      "author": "zaadd"
     }] 
   }
   ```
 - field not required
   ```javascript
   Such.as({
-    "author": "Halo",
-    "pubdate?": "2014-02-02"
+    "author": ":string[97,122]:{4,6}",
+    "pubdate?": ":date:%Y-m-d"
   });
   ``` 
   case:
   ```javascript
   {
-    "author": "Yami"
+    "author": "yami"
   }
   {
-    "author": "Kuha",
+    "author": "juha",
     "pubdate": "2015-03-16"
   }
   ```
@@ -85,7 +85,7 @@ An easy mock tool.
   ```javascript
   Such.as({    
       "author": ":word{1,2}:@ucfirst",
-      "loves?{3,4}": [":string{5,10}"] 
+      "loves?{3,4}": [":string[97,122]:{5,10}"] 
   });
   ``` 
   case:
