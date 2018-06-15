@@ -2,6 +2,15 @@
 An easy mock tool.
 
 ## [useage]
+  ```javascript
+  // make one
+  const str = Such.as(":string[97,122]:{5,10}");
+  
+  // make more
+  const instance = Such.as(":string[97,122]:{5,10}");
+  const one = instance.a();
+  const two = instance.a();
+  ``` 
 
 - number
 
@@ -10,7 +19,7 @@ An easy mock tool.
 
 - string
   
-  1. `Such.as(':string{10,20}:<test:,...>')` => 'test:acbdaaa...' 随机一个总长度在10到20之间，以test:开头，...结尾的字符串
+  1. `Such.as(':string{10,20}:<test:,...>')` => 'test:acbdaaa...' 随机一个长度在10到20之间的字符串，并且在开头添加test:，结尾添加...
 
 - date  
 
