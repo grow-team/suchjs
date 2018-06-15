@@ -1,7 +1,7 @@
 # suchjs
 An easy mock tool.
 
-## [useage]
+## [usage]
   ```javascript
   // make one
   const str = Such.as(":string[97,122]:{5,10}");
@@ -10,6 +10,14 @@ An easy mock tool.
   const instance = Such.as(":string[97,122]:{5,10}");
   const one = instance.a();
   const two = instance.a();
+  
+  // define new type
+  Such.define('chinese','string','[\\u4e00,\\u9fa5]');
+  Such.as(":chinese{2,3}"); // "啊好你" 
+  
+  // then you can use chinese type,but the count param is frozen.
+  Such.define('dialog','chinese','<"ta说：","...">');
+  Such.as(":dialog"); // "ta说：啊好你..."
   ``` 
 
 - number
