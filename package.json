@@ -14,7 +14,8 @@
   },
   "scripts": {
     "start": "tsc && node lib/such.js",
-    "test": "jest"
+    "test": "jest",
+    "local": "tsc && node lib/local/test.js"
   },
   "jest": {
     "transform": {

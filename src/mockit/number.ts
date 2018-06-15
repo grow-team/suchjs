@@ -19,7 +19,10 @@ const factor = (type:number) => {
 };
 export default class ToNumber extends Mockit<number>{
   constructor(){
-    super();
+    super(); 
+  }
+  //
+  init(){
     // Count Rule
     this.addRule('Count',(Count:NormalObject) => {
       const {range} = Count;

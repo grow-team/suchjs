@@ -1,7 +1,7 @@
 import {NormalObject,suchRule} from './config';
-import {typeOf, makeRandom, isOptional} from './helpers/utils';
+import {typeOf, makeRandom, isOptional, map} from './helpers/utils';
 import * as mockitList from './mockit';
-import parser from './parser';
+import Parser from './parser';
 /**
  *
  *
@@ -42,7 +42,26 @@ interface MockerOptions{
   parent?:Mocker;
   config?:KeyRuleInterface;
 }
+/**
+ *
+ *
+ * @interface MockitOptions
+ */
+interface MockitOptions{
+  param:string;
+  init?:() => void;
+  reGenerate?:() => void;
+  ignoreRules?:string[];
+}
+
 type Xpath = (string|number)[];
+
+// all mockits
+const AllMockits:NormalObject = {}; 
+map(mockitList,(item,key) => {
+  if((<string>key).indexOf('_') === 0)return;
+  AllMockits[key] = item;
+});
 /**
  *
  *
@@ -109,6 +128,7 @@ class Mocker{
   readonly dataType:string;
   readonly isRoot:boolean;
   readonly mockFn:(dpath:Xpath)=>any;
+  readonly mockit:NormalObject;
   constructor(options:MockerOptions,rootInstances?:ArrKeyMap<Mocker>,rootDatas?:ArrKeyMap<any>){
     const {target,xpath,config,parent} = options;
     this.target = target;
@@ -266,21 +286,43 @@ class Mocker{
       };
     }else{
       let match;
-      if(dataType === 'string' && (match = target.match(suchRule)) && mockitList.hasOwnProperty(match[1])){
+      if(dataType === 'string' && (match = target.match(suchRule)) && AllMockits.hasOwnProperty(match[1])){
         this.type = match[1];
-        const klass = (<NormalObject>mockitList)[match[1]];
+        const klass = AllMockits[match[1]];
         const instance = new klass;
         const meta = target.replace(match[0],'').replace(/^\s*:\s*/,'');
         if(meta !== ''){
-          const params = parser.parse(meta);
+          const params = Parser.parse(meta);
           instance.setParams(params);
         }
+        this.mockit = instance;
         this.mockFn = () => instance.make(Such);
       }else{
         this.mockFn = () => target;
       }
     }
   }
+  /**
+   *
+   *
+   * @param {*} value
+   * @memberof Mocker
+   */
+  setParams(value:string|NormalObject){
+    if(this.mockit){
+      return this.mockit.setParams(typeof value === 'string' ? Parser.parse(value) : value);
+    }else{
+      throw new Error('This mocker is not the mockit type.');
+    }
+  }
+  /**
+   *
+   *
+   * @static
+   * @param {string} key
+   * @returns
+   * @memberof Mocker
+   */
   static parseKey(key:string){
     const rule = /(\??)(:?)(?:\{(\d+)(?:,(\d+))?}|\[(\d+)(?:,(\d+))?])?$/;
     let match:any[];
@@ -378,47 +420,42 @@ export default class Such{
     const ret = new Such(target,options)
     return options && options.instance ? ret : ret.a();
   }
-  
-  static define(type:string,fromType:string,param:string){
-    if(!mockitList.hasOwnProperty(type)){
-      (<NormalObject>mockitList)[type] = class extends (<NormalObject>mockitList)[fromType]{
-        constructor(){
-          super();  
-        }
-        
+  /**
+   *
+   *
+   * @static
+   * @param {string} type
+   * @param {string} fromType
+   * @param {(string|MockitOptions)} options
+   * @memberof Such
+   */
+  static define(type:string,fromType:string,options:string|MockitOptions){
+    if(!AllMockits.hasOwnProperty(type)){
+      const base = AllMockits[fromType];
+      const {param,init,reGenerate,ignoreRules} = typeof options === 'string' ? (<MockitOptions>{param:options}) : options;
+      if(typeof param !== 'string' || param === ''){
+        throw new Error(`The param is a wrong parse string.`);
       }
+      const klass = class extends (base as {new():any}){
+        constructor(){
+          super();
+          this.ignoreRules = this.ignoreRules || ignoreRules;
+        }
+        init(){
+          super.init();
+          if(typeof init === 'function'){
+            init.call(this);
+          }
+          if(typeof reGenerate === 'function'){
+            this.reGenerate(reGenerate);
+          }
+          const params = Parser.parse(param);
+          this.setFrozenParams(params);
+        }
+      }
+      AllMockits[type] = klass;
     }else{
       throw new Error(`The type "${type}" has defined yet.`);
     }
   }
-}
-
-const example = Such.as({
-  'title': '这是一个测试',
-  'desc': 'suchjs是个描述性的模拟库',
-  'tech{1,3}': [{
-    'chinese': ':string[\\u4E00,\\u9FA5]:{10,20}:<"写到：","。。。">',
-    'uppercase': ':string[65,90]:{5,10}',
-    'lowercase': ':string[97,122]:{10,20}',
-    'numbers': ':string[48,57]:{8}',
-    'underline': '_',
-    'alphaNumericDash': ':string[48-57,97-122,65-90,95]:{15}',
-    'optional?': '描述可有可无',
-    'module?{2}': ['amd','cmd','umd'],
-    'module1{3}': ['amd','cmd','umd'],
-    'module2:{3}': ['amd','cmd','umd'],
-    'number1': ':number(0,100]:%0.2f',
-    'color': ':number[0x000000,0xffffff]:%#8x',
-    'number3': ':number[2,5]:%d',
-    'list': [{
-      'item{3}': [{
-        test:':string{10}'  
-      }]
-    }]
-  }]
-},{
-  instance: true
-});
-for(let i = 0, j = 2; i < j; i++){
-  console.log(JSON.stringify(example.a(),null,2));
 }

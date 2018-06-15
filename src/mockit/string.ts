@@ -10,6 +10,8 @@ const hex2num = (hex:string):number => {
 export default class ToString extends Mockit<string>{
   constructor(){
     super();
+  }
+  init(){
     // Count Rule
     this.addRule('Count',(Count:NormalObject) => {
       const {containsMax,containsMin,range} = Count;
@@ -129,6 +131,7 @@ export default class ToString extends Mockit<string>{
       const {prefix,suffix} = Wrapper;
       return prefix + result + suffix;
     }));
+    console.log('super init ---');
   }
   generate(){
     const {params} = this;

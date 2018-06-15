@@ -1,4 +1,5 @@
 import * as Config from '../config';
+import {map} from '../helpers/utils';
 //
 import NormalObject = Config.NormalObject;
 export interface ModifierFn<T>{
@@ -16,12 +17,21 @@ export default abstract class Mockit<T>{
   protected params:NormalObject = {};
   protected generateFn:undefined|(() => Result<T>);
   protected frozenRules:string[] = [];
+  protected ignoreRules:string[] = [];
   /**
    *Creates an instance of Mockit.
    * @memberof Mockit
    */
   constructor(){
+    this.init();
   }
+  /**
+   *
+   *
+   * @abstract
+   * @memberof Mockit
+   */
+  abstract init():void;
   /**
    *
    *
@@ -34,16 +44,16 @@ export default abstract class Mockit<T>{
    * @memberof Mockit
    */
   private add(type:"rule"|"modifier", name:string,  fn:RuleFn|ModifierFn<T>, pos?:string):never|void{
+    // ignore not needed rules
+    if(this.ignoreRules.indexOf(name) > -1)return;
     let target;
     let fns;
     if(type === 'rule'){
       target = this.rules;
       fns = this.ruleFns;
-    }else if(type === 'modifier') {
+    }else{
       target = this.modifiers;
       fns = this.modifierFns;
-    }else{
-      throw new Error('unkonwn type');
     }
     if(target.indexOf(name) > -1){
       throw new Error(`${type} of ${name} already exists`);
@@ -97,40 +107,58 @@ export default abstract class Mockit<T>{
   /**
    *
    *
+   * @protected
+   * @param {*} key
+   * @param {*} value
+   * @returns {(void|never)}
+   * @memberof Mockit
+   */
+  protected setFrozenParams(key:any,value:any):void|never{
+    const params = this.setParams(key,value);
+    this.frozenRules = this.frozenRules.concat(Object.keys(params));
+  }
+  /**
+   *
+   *
    * @param {NormalObject} params
    * @param {undefined} value
    * @returns {(void|never)}
    * @memberof Mockit
    */
-  setParams(params:NormalObject,value:undefined):void|never;
-  setParams(key:string,value:NormalObject):void|never;
-  setParams(key:any,value:any):void|never{
+  setParams(params:NormalObject,value:undefined):NormalObject|never;
+  setParams(key:string,value:NormalObject):NormalObject|never;
+  setParams(key:any,value:any):NormalObject|never{
     let params:NormalObject = {};
     if(typeof key === 'object' && value === undefined){
       params = key; 
     }else if(typeof key === 'string'){
       params[key] = value;
     }
-    const {rules,ruleFns} = this;
+    const {rules,ruleFns,frozenRules} = this;
     const keys = Object.keys(params);
     (keys.length > 1 ? keys.sort((a:string,b:string) => {
       return rules.indexOf(a) < rules.indexOf(b) ? 1 : -1;
     }) : keys).map((name:string) => {
-      if(rules.indexOf(name) > -1){
-        try{
-          const res = ruleFns[name].call(this,params[name]);
-          if(typeof res === 'object'){
-            this.params[name] = res;
-          }else{
-            this.params[name] = params[name];
-          }
-        }catch(e){
-          throw e;
-        } 
+      if(frozenRules.indexOf(name) > -1){
+        throw new Error(`The ${name} param is frozen in this type,you can't set it again.`);
       }else{
-        throw new Error(`un supported param (${name})`);
+        if(rules.indexOf(name) > -1){
+          try{
+            const res = ruleFns[name].call(this,params[name]);
+            if(typeof res === 'object'){
+              this.params[name] = res;
+            }else{
+              this.params[name] = params[name];
+            }
+          }catch(e){
+            throw e;
+          } 
+        }else{
+          throw new Error(`Unsupported param (${name})`);
+        }
       }
     });
+    return params;
   }
   /**
    *
