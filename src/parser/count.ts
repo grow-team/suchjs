@@ -1,16 +1,16 @@
-import {ParserInstance, ParamsCount} from '../config';
-const parser:ParserInstance =  {
+import { ParamsCount, ParserInstance } from '../config';
+const parser: ParserInstance =  {
   config: {
-    startTag:['(','['],
-    endTag: [')',']']
+    startTag: ['(', '['],
+    endTag: [')', ']'],
   },
-  parse():ParamsCount|never{
-    const {params,tags} = this.info();
+  parse(): ParamsCount | never {
+    const {params, tags} = this.info();
     return {
       containsMin: tags.start === '[',
       containsMax: tags.end === ']',
-      range: params
+      range: params,
     };
-  }
+  },
 };
 export default parser;

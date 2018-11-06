@@ -1,26 +1,29 @@
 {
   "compilerOptions": {
-      "module": "commonjs",
-      "noImplicitAny": true,
-      "removeComments": true,
-      "preserveConstEnums": true,
-      "outDir": "./lib",
-      "sourceMap": true,
-      "lib": [
-          "es2017",
-          "dom"
-      ]
+    "module": "commonjs",
+    "moduleResolution":"node",
+    "target": "es5",
+    "noImplicitAny": true,
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "outDir": "./lib",
+    "sourceMap": true,
+    "declaration": true,
+    "lib": [
+      "es2017",
+      "dom"
+    ],
+    "baseUrl": ".",
+    "paths":{
+      "@/*": ["./src/*"]
+    }
   },
   "include": [
-      "src/**/*"
+    "src/**/*"
   ],
   "exclude": [
-      "node_modules",
-      "lib/*",
-      "**/*.spec.ts"
-  ],
-  "baseUrl": ".",
-  "paths":{
-      "@":"src/"
-  }
+    "node_modules",
+    "lib/*",
+    "**/*.spec.ts"
+  ]
 }

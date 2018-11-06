@@ -1,16 +1,16 @@
-import {ParserInstance, ParamsWrapper} from '../config';
-const parser:ParserInstance =  {
+import { ParamsWrapper, ParserInstance } from '../config';
+const parser: ParserInstance =  {
   config: {
-    startTag:['<'],
-    endTag: ['>']
+    startTag: ['<'],
+    endTag: ['>'],
   },
-  parse():ParamsWrapper|never{
+  parse(): ParamsWrapper | never {
     const {params} = this.info();
-    if(params.length !== 2)return this.showError('');
+    if(params.length !== 2) {return this.showError(''); }
     return {
       prefix: params[0],
-      suffix: params[1]
+      suffix: params[1],
     };
-  }
+  },
 };
 export default parser;

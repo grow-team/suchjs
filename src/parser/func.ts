@@ -1,14 +1,14 @@
-import {ParserInstance, ParamsFunc} from '../config';
-const parser:ParserInstance =  {
+import { ParamsFunc, ParserInstance } from '../config';
+const parser: ParserInstance =  {
   config: {
-    startTag:['@'],
+    startTag: ['@'],
     endTag: [],
-    separator: '|'
+    separator: '|',
   },
-  parse():ParamsFunc|never{
+  parse(): ParamsFunc | never {
     const {params} = this.info();
-    if(params.length !== 2)return this.showError('');
+    if(params.length !== 2) {return this.showError(''); }
     return [];
-  }
+  },
 };
 export default parser;
