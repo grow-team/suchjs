@@ -30,11 +30,13 @@ export abstract class ParserInterface {
   protected endTagMatchedSeg: string;
   // 参数索引
   protected paramIndex: number;
-  // 构造函数
+  //
+  protected isPrevSeparator: boolean;
+  // constructor
   constructor() {
     this.init();
   }
-  // 初始化，以便能重复利用parser实例
+  // init
   public init() {
     // 如果没有结束标签，表示不需要界定结束标签
     this.params = [];
@@ -43,17 +45,19 @@ export abstract class ParserInterface {
       end: '',
     };
     this.isInTrans = false;
-    // 匹配开始标记
+    // match start tag
     this.startTagMatchedSeg = '';
     this.startTagOk = false;
     this.matchedStartTagList = [];
-    // 匹配结束标记
+    // match end tag
     this.hasEndTag = (this.constructor as ParserConstructor).endTag.length > 0;
     this.endTagOk = false;
     this.matchedEndTagList = [];
     this.endTagMatchedSeg = '';
-    // 参数索引
+    // param index
     this.paramIndex = 0;
+    //
+    this.isPrevSeparator = false;
     // 返回this
     return this;
   }
@@ -96,7 +100,7 @@ export abstract class ParserInterface {
       }
       //
       const constr = this.constructor as ParserConstructor;
-      const {startTag, endTag, separator} = constr;
+      const { startTag, endTag, separator } = constr;
       // startTag not matched yet
       if (!this.startTagOk) {
         const maybeTags = this.startTagMatchedSeg === '' ? startTag : this.matchedStartTagList;
@@ -135,6 +139,8 @@ export abstract class ParserInterface {
                   needAddToParam = false;
                   if (nextCode.length > 1) {
                     this.params[this.paramIndex] = this.params[this.paramIndex].slice(0, - (nextCode.length - 1));
+                  } else if(this.isPrevSeparator) {
+                    this.params[this.paramIndex] = '';
                   }
                 } else {
                   this.matchedEndTagList = matched;
@@ -147,9 +153,16 @@ export abstract class ParserInterface {
             }
             if (code === separator) {
               needAddToParam = false;
+              if(this.paramIndex === 0 && this.params[0] === undefined) {
+                this.params[0] = '';
+              }
               this.paramIndex++;
-            } else if (code === '\\') {
-              this.isInTrans = true;
+              this.isPrevSeparator = true;
+            } else {
+              this.isPrevSeparator = false;
+              if (code === '\\') {
+                this.isInTrans = true;
+              }
             }
           } else {
             this.isInTrans = false;

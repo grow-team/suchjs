@@ -71,3 +71,6 @@ export const isOptional = (): boolean => {
 export const capitalize = (target: string): string => {
   return target && target.length ? target.charAt(0).toUpperCase() + target.slice(1) : '';
 };
+export const decodeTrans = (target: string): string => {
+  return target.replace(/\\(.)/g, (_, res) => res);
+};

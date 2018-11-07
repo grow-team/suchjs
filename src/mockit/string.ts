@@ -1,6 +1,6 @@
-import { makeRandom } from '@/helpers/utils';
+import { decodeTrans, makeRandom } from '@/helpers/utils';
 import { NormalObject } from '@/types';
-import Mockit, { ModifierFn, RuleFn } from './namespace';
+import Mockit, { ModifierFn } from './namespace';
 
 const uniRule = /^\\u((?:[0-9a-f]{2}){2,3})$/i;
 const numRule = /^\d+$/;
@@ -111,33 +111,32 @@ export default class ToString extends Mockit<string> {
     this.addRule('Wrapper', (Wrapper: NormalObject) => {
       const {prefix, suffix} = Wrapper;
       const strRule = /^(["'])(?:(?!\1)[^\\]|\\.)*\1$/;
-      const commaRule = /\\,/g;
       const result: NormalObject = Wrapper;
       if(prefix !== '') {
         if(strRule.test(prefix)) {
           result.prefix = result.prefix.slice(1, -1);
         }
-        result.prefix = result.prefix.replace(commaRule, ',');
+        result.prefix = decodeTrans(result.prefix);
       }
       if(suffix !== '') {
         if(strRule.test(suffix)) {
           result.suffix = result.suffix.slice(1, -1);
         }
-        result.suffix = result.suffix.replace(commaRule, ',');
+        result.suffix = decodeTrans(result.suffix);
       }
       return result;
     });
     // Wrapper Modifier
     this.addModifier('Wrapper', ((result: string, Wrapper: NormalObject, Such: NormalObject) => {
-      const {prefix, suffix} = Wrapper;
+      const { prefix, suffix } = Wrapper;
       return prefix + result + suffix;
     }) as ModifierFn<string>);
   }
   public generate() {
-    const {params} = this;
-    const {Length} = params;
-    const {least, most} = Length || {least: 1, most: 100};
-    const {range} = params.Count || {range: [[0, 127]]};
+    const { params } = this;
+    const { Length } = params;
+    const { least, most } = Length || { least: 1, most: 100 };
+    const { range } = params.Count || { range: [[0, 127]] };
     const index = range.length - 1;
     const total = makeRandom(Number(least), Number(most));
     let result: string = '';

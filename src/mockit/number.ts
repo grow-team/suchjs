@@ -25,13 +25,24 @@ export default class ToNumber extends Mockit<number> {
   public init() {
     // Count Rule
     this.addRule('Count', (Count: NormalObject) => {
-      const {range} = Count;
+      const { range } = Count;
       const size = range.length;
       if (size !== 2) {
         // tslint:disable-next-line:max-line-length
         throw new Error(size < 2 ? `the count param must have the min and the max params` : `the count param length should be 2,but got ${size}`);
       }
-      const [min, max] = range;
+      let [min, max] = range;
+      min = min.trim();
+      max = max.trim();
+      if(min === '' && max.trim() === '') {
+        throw new Error(`the min param and max param can not both undefined`);
+      }
+      if(min === '') {
+        min = Number.MIN_SAFE_INTEGER || Number.MIN_VALUE;
+      }
+      if(max === '') {
+        max = Number.MAX_SAFE_INTEGER || Number.MAX_VALUE;
+      }
       if (isNaN(min)) {
         throw new Error(`the min param expect a number,but got ${min}`);
       }
@@ -44,9 +55,27 @@ export default class ToNumber extends Mockit<number> {
     });
     // Format rule
     this.addRule('Format', (Format: NormalObject) => {
-      const {format} = Format;
+      const { format } = Format;
       if (!formatRule.test(format)) {
         throw new Error(`Wrong format rule(${format})`);
+      }
+    });
+    // Config rule
+    this.addRule('Config', (Config: NormalObject) => {
+      const allowKeys = ['step'];
+      const curKeys = Object.keys(Config);
+      for(let i = 0, j = curKeys.length; i < j; i++) {
+        const key = curKeys[i];
+        if(allowKeys.indexOf(key) < 0) {
+          throw new Error(`unexpected config key:${key},the number type can only set keys like "${allowKeys.join()}".`);
+        }
+        if(key === 'step') {
+          if(isNaN(Config[key])) {
+            throw new Error(`the config of step is not a number,got ${Config[key]}.`);
+          } else if(+Config[key] <= 0) {
+            throw new Error(`the config of step can not be set to 0 or less than 0.`);
+          }
+        }
       }
     });
     // Format Modifier
@@ -55,11 +84,29 @@ export default class ToNumber extends Mockit<number> {
     }) as ModifierFn<number>);
   }
   public generate() {
-    const {Count} = this.params;
+    const { Count, Config } = this.params;
     let result: number;
     if (Count) {
       const {range, containsMin, containsMax} = Count;
-      const [min, max] = range;
+      const { step } = Config;
+      let [min, max] = range;
+      min = min.trim();
+      max = max.trim();
+      if(min && max && step) {
+        const minPlus = containsMin ? 0 : 1;
+        let maxPlus = (max - min) / step;
+        if(maxPlus % 1 === 0 && !containsMax) {
+          maxPlus--;
+        } else {
+          maxPlus = Math.floor(maxPlus);
+        }
+        if(maxPlus > minPlus) {
+          return +min + step * (minPlus + Math.floor(Math.random() * (maxPlus - minPlus)));
+        }
+      } else {
+        min = min ? Number.MIN_SAFE_INTEGER || Number.MIN_VALUE : min;
+        max = max ? Number.MAX_SAFE_INTEGER || Number.MAX_VALUE : max;
+      }
       result = +min + (max - min) * factor(1 * containsMin + 2 * containsMax);
     } else {
       result = Math.random() * Math.pow(10, Math.floor(10 * Math.random()));
