@@ -306,11 +306,11 @@ export class Mocker {
       for (const i in target) {
         if (target.hasOwnProperty(i)) {
           const val = target[i];
-          const {key, config} = Mocker.parseKey(i);
+          const {key, config: conf} = Mocker.parseKey(i);
           keys.push({
             key,
             target: val,
-            config,
+            config: conf,
           });
         }
       }

@@ -6,7 +6,7 @@ const getExp = (exp: string): any | never => {
   try {
     return fn();
   } catch(e) {
-    throw new Error(`wrong regexp of "${exp}".${e}`);
+    throw new Error(`wrong expression of "${exp}".reason:${e}`);
   }
 };
 const expRule: RegExp = /\/.+?\/[imguy]*/;

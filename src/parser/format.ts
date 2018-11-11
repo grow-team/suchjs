@@ -6,7 +6,9 @@ const parser: ParserInstance =  {
   },
   parse(): ParamsFormat | never {
     const {params} = this.info();
-    if(params.length !== 1) {return this.showError(''); }
+    if(params.length !== 1) {
+      return this.showError(`wrong format param:${params.join('')}`);
+    }
     return {
       format: '%' + params[0],
     };
