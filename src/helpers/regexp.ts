@@ -1,5 +1,11 @@
 import { NormalObject } from '@/types';
-type Flag = 'i' | 'm' | 'g' | 'u' | 'y';
+type Flag = 'i' | 'm' | 'g' | 'u' | 'y' | 's';
+type FlagsHash = {
+  [key in Flag]?: boolean;
+};
+type FlagsBinary = {
+  [key in Flag]: number;
+};
 const getRandom = (min: number, max: number) => {
   return min + Math.floor(Math.random() * (max - min + 1));
 };
@@ -7,8 +13,8 @@ const getLastItem = (arr: any[]) => {
   return arr[arr.length - 1];
 };
 export const symbols: NormalObject = {
-  begin: '^',
-  end: '$',
+  beginWith: '^',
+  endWith: '$',
   matchAny: '.',
   groupBegin: '(',
   groupEnd: ')',
@@ -32,6 +38,7 @@ interface ParserConf {
   namedGroupConf?: NormalObject;
 }
 interface BuildConfData extends ParserConf {
+  flags: {[index: string]: boolean};
   namedGroupData: NormalObject;
   captureGroupData: NormalObject;
 }
@@ -41,7 +48,7 @@ export default class Parser {
   public readonly lastRule: string = '';
   private queues: RegexpPart[] = [];
   private ruleInput: string = '';
-  private readonly flagsBinary: {[index: string]: number} = {
+  private readonly flagsBinary: FlagsBinary = {
     i: 0b000001,
     u: 0b000010,
     s: 0b000100,
@@ -49,6 +56,7 @@ export default class Parser {
     m: 0b010000,
     y: 0b100000,
   };
+  private flagsHash: FlagsHash = {};
   private totalFlagBinary: number = 0;
   private rootQueues: RegexpPart[] = [];
   constructor(public readonly rule: string, public readonly namedGroupConf: ParserConf = {}) {
@@ -69,6 +77,7 @@ export default class Parser {
     const { rootQueues } = this;
     const conf = {
       namedGroupInfo: this.namedGroupConf,
+      flags: this.flagsHash,
       namedGroupData: {},
       captureGroupData: {},
     };
@@ -96,7 +105,7 @@ export default class Parser {
       // current character
       const char: string = context.charAt(i++);
       // when in set,ignore these special chars
-      if((curRange || curSet) && ['[', '(', ')', '|', '*', '?', '+', '{', '.', '}', '^'].indexOf(char) > -1) {
+      if((curRange || curSet) && ['[', '(', ')', '|', '*', '?', '+', '{', '.', '}', '^', '$'].indexOf(char) > -1) {
         const newChar = new RegexpChar(char);
         if(curRange) {
           newChar.parent = curRange;
@@ -137,16 +146,27 @@ export default class Parser {
             }
           } else if(next === 'c') {
             // control char
+            // https://github.com/tc39/ecma262/pull/864
+            // https://github.com/Microsoft/ChakraCore/commit/4374e4407b12fa18e9795ce1ca0869affccb85fe
             const code = context.charAt(i);
-            if(/[a-z]/i.test(code)) {
-              target = new RegexpControl(code);
-              i++;
+            if(hasFlagU) {
+              if(/[a-zA-Z]/.test(code)) {
+                target = new RegexpControl(code);
+                i++;
+              } else {
+                throw new Error(`invalid unicode escape,unexpect control character[${i}]:\\c${code}`);
+              }
             } else {
-              target = new RegexpIgnore('\\c');
+              if(/\w/.test(code)) {
+                target = new RegexpControl(code);
+                i++;
+              } else {
+                target = new RegexpChar('\\');
+              }
             }
           } else if(['d', 'D', 'w', 'W', 's', 'S', 'b', 'B'].indexOf(next) > -1) {
             // charsets
-            target = new RegexpCharsets(input);
+            target = new RegexpCharset(input);
             // do something optimize
             if(curSet) {
               //
@@ -158,7 +178,7 @@ export default class Parser {
             const no = RegExp.$1;
             if(curSet) {
               // in set, "\" + \d will parse as octal
-              if(/^([0-7]+)/.test(no)) {
+              if(/^(0[0-7]{1,2}|[1-7][0-7]?)/.test(no)) {
                 const octal = RegExp.$1;
                 target = new RegexpOctal(`\\${octal}`);
                 i += octal.length - 1;
@@ -172,7 +192,7 @@ export default class Parser {
               } else {
                 i += no.length - 1;
                 target = new RegexpReference(`\\${no}`);
-                const refGroup = captureGroups[+no];
+                const refGroup = captureGroups[+no - 1];
                 refGroups[no] = refGroup;
                 if(refGroup) {
                   if(refGroup.isAncestorOf(lastGroup)) {
@@ -300,11 +320,13 @@ export default class Parser {
           const num = target.untilEnd(context.slice(i - 1));
           if(num > 0) {
             const type = lastQueue.special || lastQueue.type;
-            const error = `nothing to repeat[index:${i}]:${context.slice(i - 1, i - 1 + num)}`;
+            const error = `[${lastQueue.input}]nothing to repeat[index:${i}]:${context.slice(i - 1, i - 1 + num)}`;
             // tslint:disable-next-line:max-line-length
-            if(type === 'groupStart' || type === 'groupSplitor' || type === 'multipleEnd' || type === 'times' || type === 'multipleOptional' || type === 'begin') {
+            if(type === 'groupStart' || type === 'groupSplitor' || type === 'times' || type === 'multipleOptional' || type === 'begin' || (type === 'charset' && lastQueue.charset.toLowerCase() === 'b')) {
+              throw new Error(error);
+            } else if(type === 'multipleEnd') {
               // allow {1,2}?,??,but not allow ?+,{1,2}+,
-              if(type === 'multipleEnd' && char === s.optional) {
+              if(char === s.optional) {
                 target = new RegexpIgnore('\\?');
                 special = new RegexpSpecial('multipleOptional');
               } else {
@@ -383,6 +405,7 @@ export default class Parser {
     this.ruleInput = ruleInput;
     this.rootQueues = rootQueues;
     this.queues = queues;
+    console.log(this.queues);
   }
   // check if has repeat flags
   private checkFlags(): void | never {
@@ -395,15 +418,18 @@ export default class Parser {
       throw new Error(`the rule has repeat flag,please check.`);
     }
     let totalFlagBinary = flagsBinary[flags[0]];
+    const flagsHash: FlagsHash = {};
     for(let i = 1, j = flags.length; i < j; i++) {
       const flag = flags[i];
       const binary = flagsBinary[flag];
       if((totalFlagBinary & binary) === 0) {
         totalFlagBinary += binary;
+        flagsHash[flag] = true;
       } else {
         throw new Error(`wrong flag[${i}]:${flag}`);
       }
     }
+    this.flagsHash = flagsHash;
     this.totalFlagBinary = totalFlagBinary;
   }
   // check if has the flag
@@ -434,8 +460,15 @@ export abstract class RegexpPart {
   public abstract readonly type: string;
   protected min: number = 1;
   protected max: number = 1;
+  protected curCodePoint: number = 0;
   protected dataConf: NormalObject = {};
   constructor(public input: string = '') {}
+  set codePoint(point: number) {
+    this.curCodePoint = point;
+  }
+  get codePoint() {
+    return this.curCodePoint;
+  }
   public setRange(options: NumberRange) {
     Object.keys(options).forEach((key: keyof NumberRange) => {
       this[key] = options[key];
@@ -448,7 +481,7 @@ export abstract class RegexpPart {
   public pop() {
     return this.queues.pop();
   }
-  public build(conf: BuildConfData): string | number | never {
+  public build(conf: BuildConfData): string | never {
     const { min, max } = this;
     let result = '';
     if(min === 0 && max === 0) {
@@ -465,7 +498,7 @@ export abstract class RegexpPart {
   }
   //
   public setDataConf(conf: BuildConfData, result: string): void {
-
+    // override by child
   }
   // toString
   public toString() {
@@ -473,7 +506,7 @@ export abstract class RegexpPart {
   }
   // parse until end
   public untilEnd(context: string) {
-    // will extend by child class
+    // override by child
   }
   // check if this is the ancestor of the target
   public isAncestorOf(target: RegexpPart): boolean {
@@ -481,11 +514,11 @@ export abstract class RegexpPart {
       if(target === this) {
         return true;
       }
-    } while(target = target.parent);
+    } while( target = (target ? target.parent : null));
     return false;
   }
   // get last input, remove named group's name.e.g
-  public getRuleInput(): string {
+  public getRuleInput(parseReference: boolean = false): string {
     if(this.queues.length) {
       return this.queues.reduce((result: string, next: RegexpPart) => {
         return result + next.getRuleInput();
@@ -506,6 +539,20 @@ export abstract class RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
+export abstract class RegexpEmpty extends RegexpPart {
+  constructor(input?: string) {
+    super(input);
+    this.min = 0;
+    this.max = 0;
+  }
+}
+// tslint:disable-next-line:max-classes-per-file
+export abstract class RegexpOrigin extends RegexpPart {
+  protected prebuild() {
+    return this.input;
+  }
+}
+// tslint:disable-next-line:max-classes-per-file
 export class RegexpReference extends RegexpPart {
   public readonly type = 'reference';
   public ref: RegexpGroup | null = null;
@@ -514,21 +561,22 @@ export class RegexpReference extends RegexpPart {
     super(input);
     this.index = Number(`${input.slice(1)}`);
   }
-  protected prebuild() {
-    if(this.ref) {
+  protected prebuild(conf: BuildConfData) {
+    const { ref } = this;
+    if(ref === null) {
       return '';
     } else {
-      return '';
+      const { captureIndex } = ref as RegexpGroup;
+      const { captureGroupData } = conf;
+      return captureGroupData[captureIndex];
     }
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpSpecial extends RegexpPart {
+export class RegexpSpecial extends RegexpEmpty {
   public readonly type = 'special';
   constructor(public readonly special: string) {
     super();
-    this.min = 0;
-    this.max = 0;
   }
 }
 // tslint:disable-next-line:max-classes-per-file
@@ -562,35 +610,53 @@ export class RegexpBackspace extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpBegin extends RegexpPart {
+export class RegexpBegin extends RegexpEmpty {
   public readonly type = 'begin';
-  protected prebuild() {
-    return '';
-  }
 }
 // tslint:disable-next-line:max-classes-per-file
 export class RegexpControl extends RegexpPart {
   public readonly type = 'control';
+  constructor(input: string) {
+    super(`\\c${input}`);
+    this.codePoint = parseInt(input.charCodeAt(0).toString(2).slice(-5), 2);
+  }
   protected prebuild() {
-    return '';
+    return String.fromCharCode(this.codePoint);
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpCharsets extends RegexpPart {
-  public readonly type = 'charsets';
+export class RegexpCharset extends RegexpPart {
+  public readonly type = 'charset';
+  public readonly charset: string;
+  constructor(input: string) {
+    super(input);
+    this.charset = this.input.slice(-1);
+  }
   protected prebuild() {
-    return '';
+    const { charset } = this;
+    if(charset === 'b' || charset === 'B') {
+      // tslint:disable-next-line:no-console
+      console.warn('please do not use \\b or \\B');
+      return '';
+    } else {
+      //
+      switch(charset) {
+        case 'w':
+
+        break;
+      }
+    }
   }
 }
 // tslint:disable-next-line:max-classes-per-file
 export class RegexpPrint extends RegexpPart {
   public readonly type = 'print';
   protected prebuild() {
-    return '';
+    return this.input;
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpIgnore extends RegexpPart {
+export class RegexpIgnore extends RegexpEmpty {
   public readonly type = 'ignore';
   protected prebuild() {
     // tslint:disable-next-line:no-console
@@ -599,21 +665,30 @@ export class RegexpIgnore extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpChar extends RegexpPart {
+export class RegexpChar extends RegexpOrigin {
   public readonly type = 'char';
-  protected prebuild() {
-    return this.input;
+  constructor(input: string) {
+    super(input);
+    this.codePoint = input.codePointAt(0);
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpTranslateChar extends RegexpPart {
+export class RegexpTranslateChar extends RegexpOrigin {
   public readonly type = 'translate';
+  constructor(input: string) {
+    super(input);
+    this.codePoint = input.slice(-1).codePointAt(0);
+  }
 }
 // tslint:disable-next-line:max-classes-per-file
 export class RegexpOctal extends RegexpPart {
   public readonly type = 'octal';
+  constructor(input: string) {
+    super(input);
+    this.codePoint = Number(`0o${input.slice(1)}`);
+  }
   protected prebuild() {
-    return `0o${this.input.slice(1)}`;
+    return String.fromCodePoint(this.codePoint);
   }
 }
 // tslint:disable-next-line:max-classes-per-file
@@ -622,16 +697,16 @@ export abstract class RegexpTimes extends RegexpPart {
   protected readonly maxNum: number = 5;
   protected greedy: boolean = true;
   protected abstract readonly rule: RegExp;
+  protected minRepeat: number = 0;
+  protected maxRepeat: number = 0;
   constructor() {
     super();
     this.isComplete = false;
-    this.min = 0;
-    this.max = 0;
   }
   set target(target: RegexpPart) {
     target.setRange({
-      min: this.min,
-      max: this.max,
+      min: this.minRepeat,
+      max: this.maxRepeat,
     });
   }
   public untilEnd(context: string) {
@@ -645,17 +720,14 @@ export abstract class RegexpTimes extends RegexpPart {
     return 0;
   }
   public abstract parse(): void;
-  protected prebuild() {
-    return '';
-  }
 }
 // tslint:disable-next-line:max-classes-per-file
 export class RegexpTimesMulti extends RegexpTimes {
-  protected rule = /^(\{(\d+)(?:,(\d+))})/;
+  protected rule = /^(\{(\d+)(?:,(\d+))?})/;
   public parse() {
     const { $2: min, $3: max} = RegExp;
-    this.min = parseInt(min, 10);
-    this.max = Number(max) ? parseInt(max, 10) : this.min;
+    this.minRepeat = parseInt(min, 10);
+    this.maxRepeat = Number(max) ? parseInt(max, 10) : this.min;
   }
 }
 // tslint:disable-next-line:max-classes-per-file
@@ -666,14 +738,14 @@ export class RegexpTimesQuantifiers extends RegexpTimes {
     this.greedy = all.length === 1;
     switch(all.charAt(0)) {
       case '*':
-        this.max = this.maxNum;
+        this.maxRepeat = this.maxNum;
         break;
       case '+':
-        this.min = 1;
-        this.max = this.maxNum;
+        this.minRepeat = 1;
+        this.maxRepeat = this.maxNum;
         break;
       case '?':
-        this.max = 1;
+        this.maxRepeat = 1;
         break;
     }
   }
@@ -683,7 +755,7 @@ export class RegexpSet extends RegexpPart {
   public readonly type = 'set';
   public reverse: boolean = false;
   constructor() {
-    super('set');
+    super();
     this.isComplete = false;
   }
   public add(target: RegexpPart) {
@@ -692,6 +764,10 @@ export class RegexpSet extends RegexpPart {
   }
   public isSetStart() {
     return this.queues.length === 0;
+  }
+  protected prebuild(conf: BuildConfData) {
+    const index = getRandom(0, this.queues.length - 1);
+    return this.queues[index].build(conf) as string;
   }
 }
 // tslint:disable-next-line:max-classes-per-file
@@ -710,18 +786,15 @@ export class RegexpRange extends RegexpPart {
     this.queues.push(target);
   }
   protected prebuild() {
-    const [minCode, maxCode] = this.queues;
-    if(minCode > maxCode) {
-      throw new Error(`wrong range:`);
-    } else {
-      return '';
-    }
+    const [prev, next] = this.queues;
+    const min = prev.codePoint;
+    const max = next.codePoint;
+    return String.fromCodePoint(getRandom(min, max));
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export abstract class RegexpHexCode extends RegexpPart {
+export abstract class RegexpHexCode extends RegexpOrigin {
   public readonly type = 'hexcode';
-  public codePoint: number;
   protected abstract rule: RegExp;
   protected abstract codeType: string;
   public untilEnd(context: string): number {
@@ -733,9 +806,6 @@ export abstract class RegexpHexCode extends RegexpPart {
       this.input = `\\${codeType}${all}`;
     }
     return 0;
-  }
-  protected prebuild() {
-    return '';
   }
 }
 // tslint:disable-next-line:max-classes-per-file
@@ -780,10 +850,60 @@ export class RegexpGroup extends RegexpPart {
   public isGroupStart() {
     return this.groups[this.groups.length - 1].length === 0;
   }
+  // override getRuleInput
+  public getRuleInput(parseReference: boolean) {
+    const { groups, captureIndex, isRoot  } = this;
+    let result = '';
+    const segs = groups.map((group) => {
+      if(group.length === 0) {
+        return '';
+      } else {
+        return group.reduce((res, item: RegexpPart) => {
+          let cur: string;
+          if(parseReference && item.type === 'reference' && (item as RegexpReference).ref !== null) {
+            cur = (item as RegexpReference).ref.getRuleInput(parseReference);
+          } else {
+            cur = item.getRuleInput(parseReference);
+          }
+          return  res + cur;
+        }, '');
+      }
+    });
+    if(captureIndex === 0) {
+      result = '?:' + result;
+    }
+    result += segs.join('|');
+    return isRoot ? result : `(${result})`;
+  }
+  //
   protected prebuild(conf: BuildConfData) {
-    return '';
+    const { groups, captureIndex, captureName } = this;
+    const index = getRandom(0, groups.length - 1);
+    const group = groups[index];
+    if(group.length === 0) {
+      return '';
+    } else {
+      const result = group.reduce((res, queue: RegexpPart) => {
+        let cur: string;
+        if(queue.type === 'char' && (queue.input === '^' || queue.input === '$')) {
+          // tslint:disable-next-line:no-console
+          console.warn('the ^ and $ of the regexp will ignore');
+          cur = '';
+        } else {
+          cur = queue.build(conf);
+        }
+        return res + cur;
+      }, '');
+      if(captureName) {
+        conf.namedGroupData[captureName] = result;
+      }
+      if(captureIndex) {
+        conf.captureGroupData[captureIndex] = result;
+      }
+      return result;
+    }
   }
 }
 
-const testCase = new Parser(`/(a)1{2,3}/ius`);
+const testCase = new Parser(`/(^a|^bc|de$)1{2,3}\\1/ius`);
 console.log(testCase.build());

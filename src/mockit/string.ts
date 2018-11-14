@@ -14,6 +14,7 @@ export default class ToString extends Mockit<string> {
   public init() {
     // Count Rule
     this.addRule('Count', (Count: NormalObject) => {
+      // https://www.regular-expressions.info/unicode.html#prop
       const {containsMax, containsMin, range} = Count;
       if(!containsMin || !containsMax) {
         throw new Error(`You should use '[' and ']' wrap the range.`);
