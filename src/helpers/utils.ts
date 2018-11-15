@@ -65,6 +65,18 @@ export const makeRandom = (min: number, max: number): number => {
     return min + Math.floor(Math.random() * (max + 1 - min));
   }
 };
+export const makeStrRangeList = (first?: string, last?: string, ...args: string[]): string[] => {
+  if(!first || !last) {return []; }
+  const min = first.charCodeAt(0);
+  const max = last.charCodeAt(0);
+  const results = [];
+  let i = 0;
+  while(min + i <= max) {
+    results.push(String.fromCharCode(min + i));
+    i++;
+  }
+  return args.length > 0 && args.length % 2 === 0 ? results.concat(makeStrRangeList(...args)) : results;
+};
 export const isOptional = (): boolean => {
   return Math.round(Math.random()) === 0;
 };

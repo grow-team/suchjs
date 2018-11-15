@@ -1,4 +1,5 @@
-import { NormalObject } from '@/types';
+import { makeRandom, makeStrRangeList } from '@/helpers/utils';
+import {  NormalObject } from '@/types';
 type Flag = 'i' | 'm' | 'g' | 'u' | 'y' | 's';
 type FlagsHash = {
   [key in Flag]?: boolean;
@@ -6,9 +7,16 @@ type FlagsHash = {
 type FlagsBinary = {
   [key in Flag]: number;
 };
-const getRandom = (min: number, max: number) => {
-  return min + Math.floor(Math.random() * (max - min + 1));
+type CharsetType = 'd' | 'w' | 's';
+type ChasetNegatedType = 'D' | 'W' | 'S';
+type CharsetPoints = {
+  [key in CharsetType]: string[]
 };
+type CodePointRanges = number[][];
+interface MakePointsFn<T> {
+  (): T;
+  __ranges__?: T;
+}
 const getLastItem = (arr: any[]) => {
   return arr[arr.length - 1];
 };
@@ -41,6 +49,8 @@ interface BuildConfData extends ParserConf {
   flags: {[index: string]: boolean};
   namedGroupData: NormalObject;
   captureGroupData: NormalObject;
+  beginWiths: string[];
+  endWiths: string[];
 }
 export default class Parser {
   public readonly context: string = '';
@@ -75,11 +85,13 @@ export default class Parser {
   // build
   public build(): string | never {
     const { rootQueues } = this;
-    const conf = {
-      namedGroupInfo: this.namedGroupConf,
+    const conf: BuildConfData = {
+      namedGroupConf: this.namedGroupConf,
       flags: this.flagsHash,
       namedGroupData: {},
       captureGroupData: {},
+      beginWiths: [],
+      endWiths: [],
     };
     return rootQueues.reduce((res, queue) => {
       return res + queue.build(conf);
@@ -405,7 +417,6 @@ export default class Parser {
     this.ruleInput = ruleInput;
     this.rootQueues = rootQueues;
     this.queues = queues;
-    console.log(this.queues);
   }
   // check if has repeat flags
   private checkFlags(): void | never {
@@ -440,6 +451,109 @@ export default class Parser {
   }
 }
 
+// tslint:disable-next-line:max-classes-per-file
+export class CharsetHelper {
+  private readonly points: {[key in CharsetType]: CodePointRanges} = {
+    d: [[48, 57]],
+    w: [[48, 57], [65, 90], [95], [97, 122]],
+    s: [[0x0009, 0x000c], [0x0020], [0x00a0], [0x1680], [0x180e],
+        [0x2000, 0x200a], [0x2028, 0x2029], [0x202f], [0x205f], [0x3000], [0xfeff],
+       ],
+  };
+  private readonly lens: {[key in CharsetType]: number[]} = {
+    d: [10],
+    w: [10, 36, 37, 63],
+    s: [4, 5, 6, 7, 8, 18, 20, 21, 22, 23, 24],
+  };
+  private readonly bigCharPoint: number[] = [0x10000, 0x10ffff];
+  private readonly cache: NormalObject = {};
+  // contructor
+  constructor() {
+    // do nothing
+  }
+  //
+  public make(type: CharsetType | ChasetNegatedType | '.', flags: FlagsHash = {}) {
+    let ranges: CodePointRanges;
+    let totals: number[];
+    if(['w', 'd', 's'].indexOf(type) > -1) {
+      [ranges, totals] = this.charsetOf(type as CharsetType);
+    } else {
+      if(type === '.') {
+        if(flags.s) {
+          [ranges, totals] = this.charsetOfDotall();
+        } else {
+          [ranges, totals] = this.charsetOfAll();
+        }
+      } else {
+        [ranges, totals] = this.charsetOfNegated(type as ChasetNegatedType);
+      }
+    }
+  }
+  //
+  private charsetOfAll() {
+    return this.charsetOfNegated('ALL');
+  }
+  private charsetOfDotall() {
+    return this.charsetOfNegated('DOTALL');
+  }
+  private charsetOfNegated(type: 'W' | 'D' | 'S' | 'ALL' | 'DOTALL') {
+    const { points, cache } = this;
+    if(cache[type]) {
+      return cache[type];
+    } else {
+      let start = 0x0000;
+      const max = 0xDBFF;
+      const nextStart = 0xE000;
+      const nextMax = 0xFFFF;
+      const ranges: CodePointRanges = [];
+      const totals: number[] = [];
+      let total = 0;
+      const add = (begin: number, end: number) => {
+        const num = end - begin + 1;
+        if(num <= 0) {
+          return;
+        } else if(num === 1) {
+          ranges.push([begin]);
+        } else {
+          ranges.push([begin, end]);
+        }
+        total += num;
+        totals.push(total);
+      };
+      if(type === 'DOTALL') {
+        add(start, max);
+        add(nextStart, nextMax);
+      } else {
+        const excepts = type === 'ALL' ? [[0x000a], [0x000d], [0x2028, 0x2029]] : points[type.toLowerCase()];
+        const specialNum = type === 'S' ? 1 : 0;
+        while(start <= max && excepts.length > specialNum) {
+          const [begin, end] = excepts.shift();
+          add(start, begin - 1);
+          start = (end || begin) + 1;
+        }
+        if(start < max) {
+          add(start, max);
+        }
+        if(type === 'S') {
+          const last = getLastItem(excepts)[0];
+          add(nextStart, last - 1);
+          add(last + 1, nextMax);
+        }
+      }
+      return (cache[type] = {
+        ranges,
+        totals,
+      });
+    }
+  }
+  private charsetOf(type: CharsetType) {
+    const { lens, points } = this;
+    return {
+      ranges: points[type],
+      totals: lens[type],
+    };
+  }
+}
 export interface NumberRange {
   min: number;
   max: number;
@@ -766,7 +880,7 @@ export class RegexpSet extends RegexpPart {
     return this.queues.length === 0;
   }
   protected prebuild(conf: BuildConfData) {
-    const index = getRandom(0, this.queues.length - 1);
+    const index = makeRandom(0, this.queues.length - 1);
     return this.queues[index].build(conf) as string;
   }
 }
@@ -789,7 +903,7 @@ export class RegexpRange extends RegexpPart {
     const [prev, next] = this.queues;
     const min = prev.codePoint;
     const max = next.codePoint;
-    return String.fromCodePoint(getRandom(min, max));
+    return String.fromCodePoint(makeRandom(min, max));
   }
 }
 // tslint:disable-next-line:max-classes-per-file
@@ -878,7 +992,7 @@ export class RegexpGroup extends RegexpPart {
   //
   protected prebuild(conf: BuildConfData) {
     const { groups, captureIndex, captureName } = this;
-    const index = getRandom(0, groups.length - 1);
+    const index = makeRandom(0, groups.length - 1);
     const group = groups[index];
     if(group.length === 0) {
       return '';
