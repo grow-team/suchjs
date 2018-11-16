@@ -1,4 +1,4 @@
-import { makeRandom, makeStrRangeList } from '@/helpers/utils';
+import { isOptional, makeRandom } from '@/helpers/utils';
 import {  NormalObject } from '@/types';
 type Flag = 'i' | 'm' | 'g' | 'u' | 'y' | 's';
 type FlagsHash = {
@@ -7,16 +7,6 @@ type FlagsHash = {
 type FlagsBinary = {
   [key in Flag]: number;
 };
-type CharsetType = 'd' | 'w' | 's';
-type ChasetNegatedType = 'D' | 'W' | 'S';
-type CharsetPoints = {
-  [key in CharsetType]: string[]
-};
-type CodePointRanges = number[][];
-interface MakePointsFn<T> {
-  (): T;
-  __ranges__?: T;
-}
 const getLastItem = (arr: any[]) => {
   return arr[arr.length - 1];
 };
@@ -46,7 +36,7 @@ interface ParserConf {
   namedGroupConf?: NormalObject;
 }
 interface BuildConfData extends ParserConf {
-  flags: {[index: string]: boolean};
+  flags: FlagsHash;
   namedGroupData: NormalObject;
   captureGroupData: NormalObject;
   beginWiths: string[];
@@ -69,7 +59,7 @@ export default class Parser {
   private flagsHash: FlagsHash = {};
   private totalFlagBinary: number = 0;
   private rootQueues: RegexpPart[] = [];
-  constructor(public readonly rule: string, public readonly namedGroupConf: ParserConf = {}) {
+  constructor(public readonly rule: string, public readonly config: ParserConf = {}) {
     const regexpRule = new RegExp(`^\/(.+)\/([${Object.keys(this.flagsBinary).join('')}]*)$`);
     if(regexpRule.test(rule)) {
       this.rule = rule;
@@ -86,7 +76,7 @@ export default class Parser {
   public build(): string | never {
     const { rootQueues } = this;
     const conf: BuildConfData = {
-      namedGroupConf: this.namedGroupConf,
+      ...this.config,
       flags: this.flagsHash,
       namedGroupData: {},
       captureGroupData: {},
@@ -428,8 +418,11 @@ export default class Parser {
     if(len > Object.keys(flagsBinary).length) {
       throw new Error(`the rule has repeat flag,please check.`);
     }
-    let totalFlagBinary = flagsBinary[flags[0]];
-    const flagsHash: FlagsHash = {};
+    const first = flags[0];
+    let totalFlagBinary = flagsBinary[first];
+    const flagsHash: FlagsHash = {
+      [first]: true,
+    };
     for(let i = 1, j = flags.length; i < j; i++) {
       const flag = flags[i];
       const binary = flagsBinary[flag];
@@ -442,6 +435,10 @@ export default class Parser {
     }
     this.flagsHash = flagsHash;
     this.totalFlagBinary = totalFlagBinary;
+    if(flagsHash.y || flagsHash.m || flagsHash.g) {
+      // tslint:disable-next-line:no-console
+      console.warn(`the flags of 'g','m','y' will ignore,but you can set flags such as 'i','u','s'`);
+    }
   }
   // check if has the flag
   private hasFlag(flag: Flag) {
@@ -450,53 +447,105 @@ export default class Parser {
     return binary && (binary & totalFlagBinary) !== 0;
   }
 }
-
+// make charset
+type CharsetType = 'd' | 'w' | 's';
+type ChasetNegatedType = 'D' | 'W' | 'S';
+type CharsetCacheType = ChasetNegatedType | 'DOTALL' | 'ALL';
+type CharsetCache = {
+  [key in CharsetCacheType]?: CodePointResult
+};
+type CodePointRanges = number[][];
+type CodePointData<T> = {
+  [key in CharsetType]: T
+};
+interface CodePointResult {
+  ranges: CodePointRanges;
+  totals: number[];
+}
 // tslint:disable-next-line:max-classes-per-file
 export class CharsetHelper {
-  private readonly points: {[key in CharsetType]: CodePointRanges} = {
+  private readonly points: CodePointData<CodePointRanges> = {
     d: [[48, 57]],
     w: [[48, 57], [65, 90], [95], [97, 122]],
     s: [[0x0009, 0x000c], [0x0020], [0x00a0], [0x1680], [0x180e],
         [0x2000, 0x200a], [0x2028, 0x2029], [0x202f], [0x205f], [0x3000], [0xfeff],
        ],
   };
-  private readonly lens: {[key in CharsetType]: number[]} = {
+  private readonly lens: CodePointData<number[]> = {
     d: [10],
     w: [10, 36, 37, 63],
     s: [4, 5, 6, 7, 8, 18, 20, 21, 22, 23, 24],
   };
   private readonly bigCharPoint: number[] = [0x10000, 0x10ffff];
-  private readonly cache: NormalObject = {};
+  private readonly bigCharTotal: number = 0x10ffff - 0x10000 + 1;
+  private readonly cache: CharsetCache = {};
   // contructor
   constructor() {
     // do nothing
   }
-  //
-  public make(type: CharsetType | ChasetNegatedType | '.', flags: FlagsHash = {}) {
+  // make the type
+  public make(type: CharsetType | ChasetNegatedType | '.', flags: FlagsHash = {}): string {
+    let result: CodePointResult;
     let ranges: CodePointRanges;
     let totals: number[];
     if(['w', 'd', 's'].indexOf(type) > -1) {
-      [ranges, totals] = this.charsetOf(type as CharsetType);
+      result = this.charsetOf(type as CharsetType);
+      ranges = result.ranges;
+      totals = result.totals;
     } else {
       if(type === '.') {
         if(flags.s) {
-          [ranges, totals] = this.charsetOfDotall();
+          result = this.charsetOfDotall();
         } else {
-          [ranges, totals] = this.charsetOfAll();
+          result = this.charsetOfAll();
         }
       } else {
-        [ranges, totals] = this.charsetOfNegated(type as ChasetNegatedType);
+        result = this.charsetOfNegated(type as ChasetNegatedType);
+      }
+      ranges = result.ranges;
+      totals = result.totals;
+      if(flags.u) {
+        ranges = ranges.concat([this.bigCharPoint]);
+        totals = totals.slice(0).concat(this.bigCharTotal);
       }
     }
+    const total = getLastItem(totals);
+    const rand = makeRandom(1, total);
+    let nums = totals.length;
+    let codePoint: number;
+    let index = 0;
+    while(nums > 1) {
+      const avg = Math.floor(nums / 2);
+      const prev = totals[index + avg - 1];
+      const next = totals[index + avg];
+      if(rand >= prev && rand <= next) {
+        // find
+        index += avg - (rand === prev ? 1 : 0);
+        break;
+      } else {
+        if(rand > next) {
+          // in the right side
+          index += avg + 1;
+          nums -= (avg + 1);
+        } else {
+          // in the left side,keep the index
+          nums -= avg ;
+        }
+      }
+    }
+    codePoint = ranges[index][0] + (rand - (totals[index - 1] || 0)) - 1;
+    return String.fromCodePoint(codePoint);
   }
   //
-  private charsetOfAll() {
+  private charsetOfAll(): CodePointResult {
     return this.charsetOfNegated('ALL');
   }
-  private charsetOfDotall() {
+  //
+  private charsetOfDotall(): CodePointResult {
     return this.charsetOfNegated('DOTALL');
   }
-  private charsetOfNegated(type: 'W' | 'D' | 'S' | 'ALL' | 'DOTALL') {
+  //
+  private charsetOfNegated(type: CharsetCacheType): CodePointResult {
     const { points, cache } = this;
     if(cache[type]) {
       return cache[type];
@@ -524,7 +573,8 @@ export class CharsetHelper {
         add(start, max);
         add(nextStart, nextMax);
       } else {
-        const excepts = type === 'ALL' ? [[0x000a], [0x000d], [0x2028, 0x2029]] : points[type.toLowerCase()];
+        // tslint:disable-next-line:max-line-length
+        const excepts = type === 'ALL' ? [[0x000a], [0x000d], [0x2028, 0x2029]] : points[type.toLowerCase() as CharsetType];
         const specialNum = type === 'S' ? 1 : 0;
         while(start <= max && excepts.length > specialNum) {
           const [begin, end] = excepts.shift();
@@ -538,6 +588,8 @@ export class CharsetHelper {
           const last = getLastItem(excepts)[0];
           add(nextStart, last - 1);
           add(last + 1, nextMax);
+        } else {
+          add(nextStart, nextMax);
         }
       }
       return (cache[type] = {
@@ -546,6 +598,7 @@ export class CharsetHelper {
       });
     }
   }
+  // charset of type 's'|'d'|'w'
   private charsetOf(type: CharsetType) {
     const { lens, points } = this;
     return {
@@ -554,6 +607,7 @@ export class CharsetHelper {
     };
   }
 }
+export const charsetHelper = new CharsetHelper();
 export interface NumberRange {
   min: number;
   max: number;
@@ -603,7 +657,11 @@ export abstract class RegexpPart {
     } else {
       const total =  min + Math.floor(Math.random() * (max - min + 1));
       if(total !== 0) {
-        result = this.prebuild(conf).repeat(total);
+        let cur = this.prebuild(conf);
+        if(conf.flags && conf.flags.i) {
+          cur = isOptional() ? (isOptional() ? cur.toLowerCase() : cur.toUpperCase()) : cur;
+        }
+        result = cur.repeat(total);
       }
     }
     this.dataConf = conf;
@@ -699,8 +757,8 @@ export class RegexpAny extends RegexpPart {
   constructor() {
     super('.');
   }
-  protected prebuild() {
-    return '';
+  protected prebuild(conf: BuildConfData) {
+    return charsetHelper.make('.', conf.flags);
   }
 }
 // tslint:disable-next-line:max-classes-per-file
@@ -746,19 +804,15 @@ export class RegexpCharset extends RegexpPart {
     super(input);
     this.charset = this.input.slice(-1);
   }
-  protected prebuild() {
+  protected prebuild(conf: BuildConfData) {
     const { charset } = this;
     if(charset === 'b' || charset === 'B') {
       // tslint:disable-next-line:no-console
       console.warn('please do not use \\b or \\B');
       return '';
     } else {
-      //
-      switch(charset) {
-        case 'w':
-
-        break;
-      }
+      // make the charset
+      return charsetHelper.make(charset as (CharsetType | ChasetNegatedType), conf.flags);
     }
   }
 }
@@ -837,11 +891,11 @@ export abstract class RegexpTimes extends RegexpPart {
 }
 // tslint:disable-next-line:max-classes-per-file
 export class RegexpTimesMulti extends RegexpTimes {
-  protected rule = /^(\{(\d+)(?:,(\d+))?})/;
+  protected rule = /^(\{(\d+)(,(\d*))?})/;
   public parse() {
-    const { $2: min, $3: max} = RegExp;
+    const { $2: min, $3: code, $4: max} = RegExp;
     this.minRepeat = parseInt(min, 10);
-    this.maxRepeat = Number(max) ? parseInt(max, 10) : this.min;
+    this.maxRepeat = Number(max) ? parseInt(max, 10) : (code ? this.minRepeat + this.maxNum * 2 : this.minRepeat);
   }
 }
 // tslint:disable-next-line:max-classes-per-file
@@ -942,9 +996,11 @@ export class RegexpASCII extends RegexpHexCode {
 export class RegexpGroup extends RegexpPart {
   public readonly type = 'group';
   public captureIndex: number = 0;
+  public groupIndex: number = 0;
   public captureName: string = '';
   public isRoot: boolean = false;
   private groups: RegexpPart[][] = [[]];
+  private curRule: RegExp | null = null;
   constructor() {
     super();
     this.isComplete = false;
@@ -977,7 +1033,7 @@ export class RegexpGroup extends RegexpPart {
           if(parseReference && item.type === 'reference' && (item as RegexpReference).ref !== null) {
             cur = (item as RegexpReference).ref.getRuleInput(parseReference);
           } else {
-            cur = item.getRuleInput(parseReference);
+            cur = this.isEndLimitChar(item) ? '' : item.getRuleInput(parseReference);
           }
           return  res + cur;
         }, '');
@@ -990,34 +1046,58 @@ export class RegexpGroup extends RegexpPart {
     return isRoot ? result : `(${result})`;
   }
   //
-  protected prebuild(conf: BuildConfData) {
-    const { groups, captureIndex, captureName } = this;
-    const index = makeRandom(0, groups.length - 1);
-    const group = groups[index];
-    if(group.length === 0) {
-      return '';
+  protected buildRule(flags: FlagsHash) {
+    if(this.curRule) {
+      return this.curRule;
     } else {
-      const result = group.reduce((res, queue: RegexpPart) => {
-        let cur: string;
-        if(queue.type === 'char' && (queue.input === '^' || queue.input === '$')) {
-          // tslint:disable-next-line:no-console
-          console.warn('the ^ and $ of the regexp will ignore');
-          cur = '';
-        } else {
-          cur = queue.build(conf);
-        }
-        return res + cur;
-      }, '');
-      if(captureName) {
-        conf.namedGroupData[captureName] = result;
-      }
-      if(captureIndex) {
-        conf.captureGroupData[captureIndex] = result;
-      }
-      return result;
+      const rule = this.getRuleInput(true);
+      const flag = Object.keys(flags).join('');
+      return new Function('', `return /^${rule}$/${flag}`)();
     }
   }
-}
+  //
+  protected prebuild(conf: BuildConfData) {
+    const { groups, captureIndex, captureName } = this;
+    let result: string = '';
+    const { flags, namedGroupConf } = conf;
+    if(captureName && namedGroupConf && namedGroupConf[captureName]) {
+      const curRule = this.buildRule(flags);
+      const index = makeRandom(0, namedGroupConf[captureName].length - 1);
+      result = namedGroupConf[captureName][index];
+      if(!curRule.test(result)) {
+        // tslint:disable-next-line:max-line-length
+        throw new Error(`the namedGroupConf of ${captureName}'s value "${result}" is not match the rule ${curRule.toString()}`);
+      }
+    } else {
+      const index = makeRandom(0, groups.length - 1);
+      const group = groups[index];
+      if(group.length === 0) {
+        result = '';
+      } else {
+        result = group.reduce((res, queue: RegexpPart) => {
+          let cur: string;
+          if(this.isEndLimitChar(queue)) {
+            // tslint:disable-next-line:no-console
+            console.warn('the ^ and $ of the regexp will ignore');
+            cur = '';
+          } else {
+            cur = queue.build(conf);
+          }
+          return res + cur;
+        }, '');
+      }
+    }
 
-const testCase = new Parser(`/(^a|^bc|de$)1{2,3}\\1/ius`);
-console.log(testCase.build());
+    if(captureName) {
+      conf.namedGroupData[captureName] = result;
+    }
+    if(captureIndex) {
+      conf.captureGroupData[captureIndex] = result;
+    }
+    return result;
+  }
+  //
+  private isEndLimitChar(target: RegexpPart) {
+    return target.type === 'char' && (target.input === '^' || target.input === '$');
+  }
+}
