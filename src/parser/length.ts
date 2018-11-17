@@ -3,6 +3,7 @@ const parser: ParserInstance =  {
   config: {
     startTag: ['{'],
     endTag: ['}'],
+    separator: ',',
   },
   parse(): ParamsLength | never {
     const {params} = this.info();

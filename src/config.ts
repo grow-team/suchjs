@@ -52,6 +52,15 @@ export interface ParamsFunc {
  *
  *
  * @export
+ * @interface ParamsRegexp
+ */
+export interface ParamsRegexp {
+  rule: string;
+}
+/**
+ *
+ *
+ * @export
  * @interface ParamsConfig
  */
 export interface ParamsConfig {
@@ -72,6 +81,7 @@ export interface ParserConfig {
   startTag: string[];
   endTag: string[];
   separator?: string;
+  splitor?: string;
 }
 export interface ParserInstance {
   config: ParserConfig;

@@ -59,7 +59,7 @@ export default class Parser {
   private flagsHash: FlagsHash = {};
   private totalFlagBinary: number = 0;
   private rootQueues: RegexpPart[] = [];
-  constructor(public readonly rule: string, public readonly config: ParserConf = {}) {
+  constructor(public readonly rule: string, private config: ParserConf = {}) {
     const regexpRule = new RegExp(`^\/(.+)\/([${Object.keys(this.flagsBinary).join('')}]*)$`);
     if(regexpRule.test(rule)) {
       this.rule = rule;
@@ -71,6 +71,10 @@ export default class Parser {
     } else {
       throw new Error(`wrong regexp:${rule}`);
     }
+  }
+  // set configs
+  public setConfig(conf: ParserConf) {
+    this.config = conf;
   }
   // build
   public build(): string | never {

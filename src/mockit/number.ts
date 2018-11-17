@@ -88,7 +88,7 @@ export default class ToNumber extends Mockit<number> {
     let result: number;
     if (Count) {
       const {range, containsMin, containsMax} = Count;
-      const { step } = Config;
+      const step = Config && Config.step;
       let [min, max] = range;
       min = min.trim();
       max = max.trim();

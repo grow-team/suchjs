@@ -318,8 +318,8 @@ export class Mocker {
         const result: NormalObject = {};
         const prevXpath = this.xpath;
         keys.map((item) => {
-          const {key, config: conf, target: tar} = item;
-          const {optional} = config;
+          const { key, config: conf, target: tar } = item;
+          const { optional } = conf;
           const nowXpath = prevXpath.concat(key);
           const nowDpath = dpath.concat(key);
           if (optional && isOptional()) {

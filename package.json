@@ -16,7 +16,7 @@
   "scripts": {
     "start": "tsc && node lib/such.js",
     "test": "jest",
-    "local": "ts-node -r tsconfig-paths/register src/helpers/regexp.ts"
+    "local": "ts-node -r tsconfig-paths/register src/local/test.ts"
   },
   "jest": {
     "transform": {

@@ -1,4 +1,4 @@
-import { decodeTrans, makeRandom } from '@/helpers/utils';
+import { makeRandom } from '@/helpers/utils';
 import { NormalObject } from '@/types';
 import Mockit, { ModifierFn } from './namespace';
 
@@ -110,20 +110,18 @@ export default class ToString extends Mockit<string> {
     });
     // Wrapper rule
     this.addRule('Wrapper', (Wrapper: NormalObject) => {
-      const {prefix, suffix} = Wrapper;
+      const { prefix, suffix } = Wrapper;
       const strRule = /^(["'])(?:(?!\1)[^\\]|\\.)*\1$/;
       const result: NormalObject = Wrapper;
       if(prefix !== '') {
         if(strRule.test(prefix)) {
           result.prefix = result.prefix.slice(1, -1);
         }
-        result.prefix = decodeTrans(result.prefix);
       }
       if(suffix !== '') {
         if(strRule.test(suffix)) {
           result.suffix = result.suffix.slice(1, -1);
         }
-        result.suffix = decodeTrans(result.suffix);
       }
       return result;
     });
@@ -143,7 +141,7 @@ export default class ToString extends Mockit<string> {
     let result: string = '';
     for(let i = 1; i <= total; i++) {
       const idx = makeRandom(0, index);
-      const [min, max] = range[idx];
+      const [ min, max ] = range[idx];
       const point = makeRandom(min, max);
       result += String.fromCodePoint(point);
     }

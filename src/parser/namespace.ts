@@ -32,6 +32,8 @@ export abstract class ParserInterface {
   protected paramIndex: number;
   //
   protected isPrevSeparator: boolean;
+  //
+  protected isSeparator: boolean;
   // constructor
   constructor() {
     this.init();
@@ -78,12 +80,12 @@ export abstract class ParserInterface {
   }
   // 往Parser里添加code
   public addCode(code?: string) {
-    const forceEnd = typeof code === 'undefined';
+    const forceEnd = code === undefined;
     // 强制结束解析
     if (forceEnd) {
       if (!this.hasEndTag) {
         if (this.isInTrans) {
-          return this.showError('错误的结尾转义符');
+          return this.showError('wrong translate char at the end');
         } else {
           return this.endTagOk = true;
         }
@@ -100,7 +102,7 @@ export abstract class ParserInterface {
       }
       //
       const constr = this.constructor as ParserConstructor;
-      const { startTag, endTag, separator } = constr;
+      const { startTag, endTag, separator, splitor } = constr;
       // startTag not matched yet
       if (!this.startTagOk) {
         const maybeTags = this.startTagMatchedSeg === '' ? startTag : this.matchedStartTagList;
@@ -123,7 +125,8 @@ export abstract class ParserInterface {
       if (this.startTagOk) {
         if (!this.endTagOk) {
           let needAddToParam = true;
-          if (!this.isInTrans) {
+          const { isInTrans } = this;
+          if (!isInTrans) {
             if (this.hasEndTag) {
               const hasMatchedSeg = this.endTagMatchedSeg !== '';
               const maybeTags = hasMatchedSeg ? this.matchedEndTagList : endTag;
@@ -168,10 +171,15 @@ export abstract class ParserInterface {
             this.isInTrans = false;
           }
           if (needAddToParam) {
-            if (typeof this.params[this.paramIndex] === 'undefined') {
-              this.params[this.paramIndex] = '';
+            const { params, paramIndex } = this;
+            if (params[paramIndex] === undefined) {
+              params[paramIndex] = code;
+            } else {
+              if(isInTrans && (code === splitor || code === separator || endTag.indexOf(code) > -1)) {
+                params[paramIndex] = params[paramIndex].slice(0, -1);
+              }
+              params[paramIndex] += code;
             }
-            this.params[this.paramIndex] += code;
           }
         }
       }
@@ -200,10 +208,10 @@ const getMatchedPairs = (pairs: string[], search = '') => {
     return pair.indexOf(search) === 0;
   });
 };
-const getExactPairs = (pairs: string[], search = '', seg: string) => {
+const getExactPairs = (pairs: string[], search = '', seg: string, splitor: string) => {
   const len = search.length;
   return pairs.filter((pair) => {
-    return pair.length === len || (pair.charAt(len) === ':' && seg.indexOf(pair.split(':')[1]) >= len);
+    return pair.length === len || (pair.charAt(len) === splitor && seg.indexOf(pair.split(splitor)[1]) >= len);
   });
 };
 /**
@@ -218,6 +226,7 @@ export class Dispatcher {
   protected parsers: ParserList = {};
   protected tagPairs: string[] = [];
   protected pairHash: NormalObject = {};
+  protected readonly splitor: string = ':';
   protected instances: ParserInstances = {};
   //
   public halt(err: string): never {
@@ -234,11 +243,15 @@ export class Dispatcher {
    */
   public addParser(name: string, config: ParserConfig, parse: () => void): never | void {
     const {startTag, endTag, separator} = config;
+    const { splitor } = this;
+    if(separator === splitor) {
+      return this.halt(`the parser of ${name} can not set '${splitor}' as separator.`);
+    }
     if (this.parsers.hasOwnProperty(name)) {
       return this.halt(`${name}的parser已经存在，请查看命名`);
     }
     if (startTag.length === 0) {
-      return this.halt('${name}的解析器开始标签不能为空');
+      return this.halt(`${name}的解析器开始标签不能为空`);
     }
     if (/(\\|:|\s)/.test(startTag.concat(endTag).join(''))) {
       const char = RegExp.$1;
@@ -246,7 +259,6 @@ export class Dispatcher {
     }
     //
     const pairs: string[] = [];
-    const splitor = ':';
     startTag.map((start) => {
       if (endTag.length > 1) {
         endTag.map((end) => {
@@ -272,7 +284,8 @@ export class Dispatcher {
     this.parsers[name] = class extends ParserInterface {
       public static readonly startTag: any[] = startTag;
       public static readonly endTag: any[] = endTag;
-      public static readonly separator: string = separator || ',';
+      public static readonly separator: string = separator || '';
+      public static readonly splitor: string = splitor;
       public parse() {
         return parse.call(this);
       }
@@ -286,13 +299,14 @@ export class Dispatcher {
    */
   public parse(code: string): NormalObject | never {
     const segs: string[] = [];
+    const { splitor } = this;
     let isInTrans = false;
     let seg: string = '';
     // 去掉首尾的空格
     for (let i = 0, j = code.length; i < j; i++) {
       const cur = code[i];
       if (!isInTrans) {
-        if (cur === ':') {
+        if (cur === splitor) {
           segs.push(seg.trim());
           seg = '';
         } else {
@@ -309,6 +323,7 @@ export class Dispatcher {
     segs.push(seg.trim());
     //
     const result = {};
+    console.log('segs', segs);
     segs.map((cur) => {
       Object.assign(result, this.match(cur));
     });
@@ -323,12 +338,13 @@ export class Dispatcher {
    * @memberof Dispatcher
    */
   protected match(seg: string): never | NormalObject {
+    const { splitor } = this;
     let matchedStart = seg.charAt(0);
     let matchedPairs: string[] = getMatchedPairs(this.tagPairs, matchedStart);
     if (matchedPairs.length === 0) {
       return this.halt('没有找到匹配的参数开始标签');
     }
-    let maybePairs: string[] = getExactPairs(matchedPairs, matchedStart, seg);
+    let maybePairs: string[] = getExactPairs(matchedPairs, matchedStart, seg, splitor);
     for (let i = 1, j = seg.length; i < j; i++) {
       matchedStart += seg.charAt(i);
       const nextPairs = getMatchedPairs(matchedPairs, matchedStart);
@@ -336,7 +352,7 @@ export class Dispatcher {
         break;
       } else {
         matchedPairs = nextPairs;
-        maybePairs = maybePairs.concat(getExactPairs(matchedPairs, matchedStart, seg));
+        maybePairs = maybePairs.concat(getExactPairs(matchedPairs, matchedStart, seg, splitor));
       }
     }
     if (maybePairs.length === 0) {
