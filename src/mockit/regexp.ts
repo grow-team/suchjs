@@ -1,8 +1,7 @@
 import { ParamsRegexp } from '@/config';
 import RegexpParser from '@/helpers/regexp';
-import { typeOf } from '@/helpers/utils';
 import { NormalObject } from '@/types';
-import Mockit, { ModifierFn } from './namespace';
+import Mockit from './namespace';
 export default class ToRegexp extends Mockit<string> {
   private instance: RegexpParser;
   constructor() {
@@ -13,21 +12,34 @@ export default class ToRegexp extends Mockit<string> {
     this.addRule('Regexp', (Regexp: ParamsRegexp) => {
       //
       const { rule } = Regexp;
-      try {
-        this.instance = new RegexpParser(rule);
-      } catch(e) {
-        throw e;
+      if(!/^\/.+\/[imguys]*$/.test(rule)) {
+        throw new Error('wrong regexp expression');
       }
     });
     // config rule
     this.addRule('Config', (Config: NormalObject) => {
-      //
       const result: NormalObject = {};
-      const rule = /.?\\|/g;
+      const rule = /(.?)\|/g;
       Object.keys(Config).forEach((key) => {
         const value = Config[key];
         if(typeof value === 'string') {
-
+          let match: null | any[];
+          let segs: string[] = [];
+          const groups: string[] = [];
+          let lastIndex = 0;
+          while((match = rule.exec(value)) !== null) {
+            if(match[1] === '\\') {
+              segs.push(value.slice(lastIndex, rule.lastIndex));
+            } else {
+              groups.push(segs.join('') + value.slice(lastIndex, rule.lastIndex - 1));
+              segs = [];
+            }
+            lastIndex = rule.lastIndex;
+          }
+          if(lastIndex < value.length) {
+            groups.push(value.slice(lastIndex, value.length));
+          }
+          result[key] = groups;
         } else {
           result[key] = value;
         }

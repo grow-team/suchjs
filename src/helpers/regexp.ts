@@ -232,7 +232,7 @@ export default class Parser {
               // do nothing, captureIndex = 0 by default
             } else if(captureName) {
               // named group
-              target.captureIndex = ++ groupCaptureIndex;
+              target.captureIndex = ++groupCaptureIndex;
               target.captureName = captureName;
             } else {
               throw new Error(`do not use any lookahead\\lookbehind:${all}`);
@@ -629,6 +629,7 @@ export abstract class RegexpPart {
   public readonly queues: RegexpPart[] = [];
   public isComplete: boolean = true;
   public parent: null | RegexpPart = null;
+  public buildForTimes: boolean = false;
   public abstract readonly type: string;
   protected min: number = 1;
   protected max: number = 1;
@@ -659,13 +660,22 @@ export abstract class RegexpPart {
     if(min === 0 && max === 0) {
       // do nothing
     } else {
-      const total =  min + Math.floor(Math.random() * (max - min + 1));
+      let total =  min + Math.floor(Math.random() * (max - min + 1));
       if(total !== 0) {
-        let cur = this.prebuild(conf);
-        if(conf.flags && conf.flags.i) {
-          cur = isOptional() ? (isOptional() ? cur.toLowerCase() : cur.toUpperCase()) : cur;
+        const makeOnce = () => {
+          let cur = this.prebuild(conf);
+          if(conf.flags && conf.flags.i) {
+            cur = isOptional() ? (isOptional() ? cur.toLowerCase() : cur.toUpperCase()) : cur;
+          }
+          return cur;
+        };
+        if(!this.buildForTimes) {
+          result = makeOnce().repeat(total);
+        } else {
+          while(total--) {
+            result += makeOnce();
+          }
         }
-        result = cur.repeat(total);
       }
     }
     this.dataConf = conf;
@@ -694,14 +704,18 @@ export abstract class RegexpPart {
     return false;
   }
   // get last input, remove named group's name.e.g
-  public getRuleInput(parseReference: boolean = false): string {
+  public getRuleInput(parseReference?: boolean): string {
     if(this.queues.length) {
-      return this.queues.reduce((result: string, next: RegexpPart) => {
-        return result + next.getRuleInput();
-      }, '');
+      return this.buildRuleInputFromQueues();
     } else {
       return this.input;
     }
+  }
+  //
+  protected buildRuleInputFromQueues(): string {
+    return this.queues.reduce((result: string, next: RegexpPart) => {
+      return result + next.getRuleInput();
+    }, '');
   }
   // when
   protected prebuild(conf: BuildConfData): string | never {
@@ -760,6 +774,7 @@ export class RegexpAny extends RegexpPart {
   public readonly type = 'any';
   constructor() {
     super('.');
+    this.buildForTimes = true;
   }
   protected prebuild(conf: BuildConfData) {
     return charsetHelper.make('.', conf.flags);
@@ -807,6 +822,7 @@ export class RegexpCharset extends RegexpPart {
   constructor(input: string) {
     super(input);
     this.charset = this.input.slice(-1);
+    this.buildForTimes = true;
   }
   protected prebuild(conf: BuildConfData) {
     const { charset } = this;
@@ -850,6 +866,9 @@ export class RegexpTranslateChar extends RegexpOrigin {
   constructor(input: string) {
     super(input);
     this.codePoint = input.slice(-1).codePointAt(0);
+  }
+  protected prebuild() {
+    return this.input.slice(-1);
   }
 }
 // tslint:disable-next-line:max-classes-per-file
@@ -929,6 +948,7 @@ export class RegexpSet extends RegexpPart {
   constructor() {
     super();
     this.isComplete = false;
+    this.buildForTimes = true;
   }
   public add(target: RegexpPart) {
     const { queues } = this;
@@ -936,6 +956,9 @@ export class RegexpSet extends RegexpPart {
   }
   public isSetStart() {
     return this.queues.length === 0;
+  }
+  public getRuleInput() {
+    return '[' + this.buildRuleInputFromQueues() + ']';
   }
   protected prebuild(conf: BuildConfData) {
     const index = makeRandom(0, this.queues.length - 1);
@@ -956,6 +979,10 @@ export class RegexpRange extends RegexpPart {
       this.isComplete = true;
     }
     this.queues.push(target);
+  }
+  public getRuleInput() {
+    const [prev, next] = this.queues;
+    return prev.getRuleInput() + '-' + next.getRuleInput();
   }
   protected prebuild() {
     const [prev, next] = this.queues;
@@ -982,17 +1009,17 @@ export abstract class RegexpHexCode extends RegexpOrigin {
 }
 // tslint:disable-next-line:max-classes-per-file
 export class RegexpUnicode extends RegexpHexCode {
-  protected rule = /^([0-9a-f]{4})/i;
+  protected rule = /^([0-9A-Fa-f]{4})/;
   protected codeType = 'u';
 }
 // tslint:disable-next-line:max-classes-per-file
 export class RegexpUnicodeAll extends RegexpHexCode {
-  protected rule = /^({([0-9a-f]{4}|[0-9a-f]{6})}|[0-9a-f]{2})/i;
+  protected rule = /^({([0-9A-Fa-f]{4}|[0-9A-Fa-f]{6})}|[0-9A-Fa-f]{2})/;
   protected codeType = 'u';
 }
 // tslint:disable-next-line:max-classes-per-file
 export class RegexpASCII extends RegexpHexCode {
-  protected rule = /^([0-9a-f]{2})/i;
+  protected rule = /^([0-9A-Fa-f]{2})/;
   protected codeType = 'x';
 }
 
