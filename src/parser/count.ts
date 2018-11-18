@@ -1,12 +1,12 @@
 import { ParamsCount, ParserInstance } from '../config';
 const parser: ParserInstance =  {
   config: {
-    startTag: ['(', '['],
-    endTag: [')', ']'],
+    startTag: ['['],
+    endTag: [']'],
     separator: ',',
   },
   parse(): ParamsCount | never {
-    const {params, tags} = this.info();
+    const { params, tags } = this.info();
     return {
       containsMin: tags.start === '[',
       containsMax: tags.end === ']',

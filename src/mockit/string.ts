@@ -15,10 +15,7 @@ export default class ToString extends Mockit<string> {
     // Count Rule
     this.addRule('Count', (Count: NormalObject) => {
       // https://www.regular-expressions.info/unicode.html#prop
-      const {containsMax, containsMin, range} = Count;
-      if(!containsMin || !containsMax) {
-        throw new Error(`You should use '[' and ']' wrap the range.`);
-      }
+      const { range } = Count;
       if(range.length < 2) {
         throw new Error(`The count param should have 2 params,but got ${range.length}`);
       }
@@ -90,14 +87,12 @@ export default class ToString extends Mockit<string> {
         });
       }
       return {
-        containsMax,
-        containsMin,
         range: result,
       };
     });
     // Length Rule
     this.addRule('Length', (Length: NormalObject) => {
-      const {least, most} = Length;
+      const { least, most } = Length;
       if(isNaN(least)) {
         throw new Error(`The length param of least expect a number,but got ${least}`);
       }
@@ -108,28 +103,6 @@ export default class ToString extends Mockit<string> {
         throw new Error(`The length param of least  ${least} is big than the most ${most}`);
       }
     });
-    // Wrapper rule
-    this.addRule('Wrapper', (Wrapper: NormalObject) => {
-      const { prefix, suffix } = Wrapper;
-      const strRule = /^(["'])(?:(?!\1)[^\\]|\\.)*\1$/;
-      const result: NormalObject = Wrapper;
-      if(prefix !== '') {
-        if(strRule.test(prefix)) {
-          result.prefix = result.prefix.slice(1, -1);
-        }
-      }
-      if(suffix !== '') {
-        if(strRule.test(suffix)) {
-          result.suffix = result.suffix.slice(1, -1);
-        }
-      }
-      return result;
-    });
-    // Wrapper Modifier
-    this.addModifier('Wrapper', ((result: string, Wrapper: NormalObject, Such: NormalObject) => {
-      const { prefix, suffix } = Wrapper;
-      return prefix + result + suffix;
-    }) as ModifierFn<string>);
   }
   public generate() {
     const { params } = this;

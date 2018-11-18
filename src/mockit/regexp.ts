@@ -1,5 +1,5 @@
 import { ParamsRegexp } from '@/config';
-import RegexpParser from '@/helpers/regexp';
+import RegexpParser, { regexpRule } from '@/helpers/regexp';
 import { NormalObject } from '@/types';
 import Mockit from './namespace';
 export default class ToRegexp extends Mockit<string> {
@@ -12,7 +12,7 @@ export default class ToRegexp extends Mockit<string> {
     this.addRule('Regexp', (Regexp: ParamsRegexp) => {
       //
       const { rule } = Regexp;
-      if(!/^\/.+\/[imguys]*$/.test(rule)) {
+      if(!regexpRule.test(rule)) {
         throw new Error('wrong regexp expression');
       }
     });

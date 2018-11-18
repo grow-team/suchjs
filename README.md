@@ -6,8 +6,10 @@ An easy mock tool.
   // make one
   const str = Such.as(":string[97,122]:{5,10}");
   
-  // make more
-  const instance = Such.as(":string[97,122]:{5,10}");
+  // make many
+  const instance = Such.as(":string[97,122]:{5,10}",{
+    instance: true
+  });
   const one = instance.a();
   const two = instance.a();
   
@@ -15,19 +17,16 @@ An easy mock tool.
   Such.define('chinese','string','[\\u4e00,\\u9fa5]');
   Such.as(":chinese{2,3}"); // "啊好你" 
   
-  // then you can use chinese type,but the count param is frozen.
-  Such.define('dialog','chinese','<"ta说：","...">');
-  Such.as(":dialog"); // "ta说：啊好你..."
   ``` 
 
 - number
 
-  1. `Such.as(':number(1,10]:%02d')` => 02...10，随机一个大于1，小于等于10的整数
-  2. `Such.as(':number[1,10]:%.2f')` =>  9.33 随机一个1到10之间的保留两位小数的浮点数
+  1. `Such.as(':number(1,10]:%02d')` => 02
+  2. `Such.as(':number[1,10]:%.2f')` => 9.33
 
 - string
   
-  1. `Such.as(':string{10,20}:<test:,...>')` => 'test:acbdaaa...' 随机一个长度在10到20之间的字符串，并且在开头添加test:，结尾添加...
+  1. `Such.as(':string{10,20}')` => "asg,83a30l."
 
 - date  
 
@@ -39,23 +38,22 @@ An easy mock tool.
 
 ## [value rules]
 
-- (MIN,MAX)|[MIN,MAX)|[MIN,MAX]   
-  用来表示大小，通常针对数字，对于字符串，也可以用来表示unicode码点范围
+- [MIN,MAX]   
+  a range between min to max,such as numbers,datetime,unicode point.
 
-- {MIN?,MAX}|{NUMBER}  
-  用来表示长度，可针对字符串或者数组，用来限定个数
-
-- <PREFIX?,SUFFIX?>  
-  主要针对字符串，设定字符串以xxx开始或者xxx结尾
+- {MIN,MAX?}|{NUMBER}  
+  a length between min to max,such as string,array size
 
 - %FORMAT  
-  主要针对数字、日期类型等，用来对数据进行格式化 
+  format the data,such as numbers,datetime. 
 
-- #[KEY=VALUE;KEY=VALUE;....]  
-  定义一些常量配置，用来对数据做进一步的处理
+- #[KEY=VALUE,KEY=VALUE;....]  
+  define some variables,e.g :ip#[v4]
 
-- @fn1()|fn2()...
-  通过函数对数据进行进一步的处理
+- $/abc/i  
+  regexp rules,you can extend many types from the regexp rule.
+
+
 
 ## [key rules]
 

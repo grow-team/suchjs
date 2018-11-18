@@ -1,3 +1,4 @@
+import { regexpRule } from '@/helpers/regexp';
 import { decodeTrans } from '@/helpers/utils';
 import { NormalObject } from '@/types';
 import { ParamsConfig, ParserInstance } from '../config';
@@ -9,7 +10,6 @@ const getExp = (exp: string): any | never => {
     throw new Error(`wrong expression of "${exp}".reason:${e}`);
   }
 };
-const expRule: RegExp = /\/.+?\/[imguy]*/;
 const parser: ParserInstance =  {
   config: {
     startTag: ['#['],
@@ -31,7 +31,7 @@ const parser: ParserInstance =  {
           } else if(plainValue) {
             const value = plainValue;
             if(value.charAt(0) === '/') {
-              if(expRule.test(value)) {
+              if(regexpRule.test(value)) {
                 config[key] = getExp(value);
               } else {
                 throw new Error(`wrong regexp:${value}`);

@@ -1,16 +1,26 @@
 import { isOptional, makeRandom } from '@/helpers/utils';
 import {  NormalObject } from '@/types';
-type Flag = 'i' | 'm' | 'g' | 'u' | 'y' | 's';
-type FlagsHash = {
+export type Flag = 'i' | 'm' | 'g' | 'u' | 'y' | 's';
+export type FlagsHash = {
   [key in Flag]?: boolean;
 };
-type FlagsBinary = {
+export type FlagsBinary = {
   [key in Flag]: number;
 };
+export interface ParserConf {
+  namedGroupConf?: NormalObject;
+}
+export interface BuildConfData extends ParserConf {
+  flags: FlagsHash;
+  namedGroupData: NormalObject;
+  captureGroupData: NormalObject;
+  beginWiths: string[];
+  endWiths: string[];
+}
 const getLastItem = (arr: any[]) => {
   return arr[arr.length - 1];
 };
-export const symbols: NormalObject = {
+const symbols: NormalObject = {
   beginWith: '^',
   endWith: '$',
   matchAny: '.',
@@ -32,35 +42,31 @@ export const symbols: NormalObject = {
   optional: '?',
   setNotIn: '^',
 };
-interface ParserConf {
-  namedGroupConf?: NormalObject;
-}
-interface BuildConfData extends ParserConf {
-  flags: FlagsHash;
-  namedGroupData: NormalObject;
-  captureGroupData: NormalObject;
-  beginWiths: string[];
-  endWiths: string[];
-}
+const flagsBinary: FlagsBinary = {
+  i: 0b000001,
+  u: 0b000010,
+  s: 0b000100,
+  g: 0b001000,
+  m: 0b010000,
+  y: 0b100000,
+};
+export const regexpRule = new RegExp(`^\/(.+)\/([${Object.keys(flagsBinary).join('')}]*)$`);
+/**
+ *
+ *
+ * @export
+ * @class Parser
+ */
 export default class Parser {
   public readonly context: string = '';
   public readonly flags: Flag[] = [];
   public readonly lastRule: string = '';
   private queues: RegexpPart[] = [];
   private ruleInput: string = '';
-  private readonly flagsBinary: FlagsBinary = {
-    i: 0b000001,
-    u: 0b000010,
-    s: 0b000100,
-    g: 0b001000,
-    m: 0b010000,
-    y: 0b100000,
-  };
   private flagsHash: FlagsHash = {};
   private totalFlagBinary: number = 0;
   private rootQueues: RegexpPart[] = [];
   constructor(public readonly rule: string, private config: ParserConf = {}) {
-    const regexpRule = new RegExp(`^\/(.+)\/([${Object.keys(this.flagsBinary).join('')}]*)$`);
     if(regexpRule.test(rule)) {
       this.rule = rule;
       this.context = RegExp.$1;
@@ -414,7 +420,7 @@ export default class Parser {
   }
   // check if has repeat flags
   private checkFlags(): void | never {
-    const { flags, flagsBinary } = this;
+    const { flags } = this;
     const len = flags.length;
     if(len === 0) {
       return;
@@ -446,7 +452,7 @@ export default class Parser {
   }
   // check if has the flag
   private hasFlag(flag: Flag) {
-    const { totalFlagBinary, flagsBinary } = this;
+    const { totalFlagBinary } = this;
     const binary = flagsBinary[flag];
     return binary && (binary & totalFlagBinary) !== 0;
   }
@@ -467,7 +473,7 @@ interface CodePointResult {
   totals: number[];
 }
 // tslint:disable-next-line:max-classes-per-file
-export class CharsetHelper {
+class CharsetHelper {
   private readonly points: CodePointData<CodePointRanges> = {
     d: [[48, 57]],
     w: [[48, 57], [65, 90], [95], [97, 122]],
@@ -611,8 +617,8 @@ export class CharsetHelper {
     };
   }
 }
-export const charsetHelper = new CharsetHelper();
-export interface NumberRange {
+const charsetHelper = new CharsetHelper();
+interface NumberRange {
   min: number;
   max: number;
 }
@@ -625,7 +631,7 @@ export interface NumberRange {
  * @class RegexpPart
  */
 // tslint:disable-next-line:max-classes-per-file
-export abstract class RegexpPart {
+abstract class RegexpPart {
   public readonly queues: RegexpPart[] = [];
   public isComplete: boolean = true;
   public parent: null | RegexpPart = null;
@@ -729,7 +735,7 @@ export abstract class RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export abstract class RegexpEmpty extends RegexpPart {
+abstract class RegexpEmpty extends RegexpPart {
   constructor(input?: string) {
     super(input);
     this.min = 0;
@@ -737,13 +743,13 @@ export abstract class RegexpEmpty extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export abstract class RegexpOrigin extends RegexpPart {
+abstract class RegexpOrigin extends RegexpPart {
   protected prebuild() {
     return this.input;
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpReference extends RegexpPart {
+class RegexpReference extends RegexpPart {
   public readonly type = 'reference';
   public ref: RegexpGroup | null = null;
   public index: number;
@@ -763,14 +769,14 @@ export class RegexpReference extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpSpecial extends RegexpEmpty {
+class RegexpSpecial extends RegexpEmpty {
   public readonly type = 'special';
   constructor(public readonly special: string) {
     super();
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpAny extends RegexpPart {
+class RegexpAny extends RegexpPart {
   public readonly type = 'any';
   constructor() {
     super('.');
@@ -781,7 +787,7 @@ export class RegexpAny extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpNull extends RegexpPart {
+class RegexpNull extends RegexpPart {
   public readonly type = 'null';
   constructor() {
     super('\\0');
@@ -791,7 +797,7 @@ export class RegexpNull extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpBackspace extends RegexpPart {
+class RegexpBackspace extends RegexpPart {
   public readonly type = 'backspace';
   constructor() {
     super('[\\b]');
@@ -801,11 +807,11 @@ export class RegexpBackspace extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpBegin extends RegexpEmpty {
+class RegexpBegin extends RegexpEmpty {
   public readonly type = 'begin';
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpControl extends RegexpPart {
+class RegexpControl extends RegexpPart {
   public readonly type = 'control';
   constructor(input: string) {
     super(`\\c${input}`);
@@ -816,7 +822,7 @@ export class RegexpControl extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpCharset extends RegexpPart {
+class RegexpCharset extends RegexpPart {
   public readonly type = 'charset';
   public readonly charset: string;
   constructor(input: string) {
@@ -837,14 +843,14 @@ export class RegexpCharset extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpPrint extends RegexpPart {
+class RegexpPrint extends RegexpPart {
   public readonly type = 'print';
   protected prebuild() {
     return this.input;
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpIgnore extends RegexpEmpty {
+class RegexpIgnore extends RegexpEmpty {
   public readonly type = 'ignore';
   protected prebuild() {
     // tslint:disable-next-line:no-console
@@ -853,7 +859,7 @@ export class RegexpIgnore extends RegexpEmpty {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpChar extends RegexpOrigin {
+class RegexpChar extends RegexpOrigin {
   public readonly type = 'char';
   constructor(input: string) {
     super(input);
@@ -861,7 +867,7 @@ export class RegexpChar extends RegexpOrigin {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpTranslateChar extends RegexpOrigin {
+class RegexpTranslateChar extends RegexpOrigin {
   public readonly type = 'translate';
   constructor(input: string) {
     super(input);
@@ -872,7 +878,7 @@ export class RegexpTranslateChar extends RegexpOrigin {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpOctal extends RegexpPart {
+class RegexpOctal extends RegexpPart {
   public readonly type = 'octal';
   constructor(input: string) {
     super(input);
@@ -883,7 +889,7 @@ export class RegexpOctal extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export abstract class RegexpTimes extends RegexpPart {
+abstract class RegexpTimes extends RegexpPart {
   public readonly type = 'times';
   protected readonly maxNum: number = 5;
   protected greedy: boolean = true;
@@ -913,7 +919,7 @@ export abstract class RegexpTimes extends RegexpPart {
   public abstract parse(): void;
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpTimesMulti extends RegexpTimes {
+class RegexpTimesMulti extends RegexpTimes {
   protected rule = /^(\{(\d+)(,(\d*))?})/;
   public parse() {
     const { $2: min, $3: code, $4: max} = RegExp;
@@ -922,7 +928,7 @@ export class RegexpTimesMulti extends RegexpTimes {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpTimesQuantifiers extends RegexpTimes {
+class RegexpTimesQuantifiers extends RegexpTimes {
   protected rule = /^(\*\?|\+\?|\*|\+|\?)/;
   public parse() {
     const all = RegExp.$1;
@@ -942,7 +948,7 @@ export class RegexpTimesQuantifiers extends RegexpTimes {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpSet extends RegexpPart {
+class RegexpSet extends RegexpPart {
   public readonly type = 'set';
   public reverse: boolean = false;
   constructor() {
@@ -966,7 +972,7 @@ export class RegexpSet extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpRange extends RegexpPart {
+class RegexpRange extends RegexpPart {
   public readonly type = 'range';
   constructor() {
     super();
@@ -992,7 +998,7 @@ export class RegexpRange extends RegexpPart {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export abstract class RegexpHexCode extends RegexpOrigin {
+abstract class RegexpHexCode extends RegexpOrigin {
   public readonly type = 'hexcode';
   protected abstract rule: RegExp;
   protected abstract codeType: string;
@@ -1008,23 +1014,23 @@ export abstract class RegexpHexCode extends RegexpOrigin {
   }
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpUnicode extends RegexpHexCode {
+class RegexpUnicode extends RegexpHexCode {
   protected rule = /^([0-9A-Fa-f]{4})/;
   protected codeType = 'u';
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpUnicodeAll extends RegexpHexCode {
+class RegexpUnicodeAll extends RegexpHexCode {
   protected rule = /^({([0-9A-Fa-f]{4}|[0-9A-Fa-f]{6})}|[0-9A-Fa-f]{2})/;
   protected codeType = 'u';
 }
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpASCII extends RegexpHexCode {
+class RegexpASCII extends RegexpHexCode {
   protected rule = /^([0-9A-Fa-f]{2})/;
   protected codeType = 'x';
 }
 
 // tslint:disable-next-line:max-classes-per-file
-export class RegexpGroup extends RegexpPart {
+class RegexpGroup extends RegexpPart {
   public readonly type = 'group';
   public captureIndex: number = 0;
   public groupIndex: number = 0;

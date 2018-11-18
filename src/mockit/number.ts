@@ -31,10 +31,10 @@ export default class ToNumber extends Mockit<number> {
         // tslint:disable-next-line:max-line-length
         throw new Error(size < 2 ? `the count param must have the min and the max params` : `the count param length should be 2,but got ${size}`);
       }
-      let [min, max] = range;
+      let [ min, max ] = range;
       min = min.trim();
       max = max.trim();
-      if(min === '' && max.trim() === '') {
+      if(min === '' && max === '') {
         throw new Error(`the min param and max param can not both undefined`);
       }
       if(min === '') {
@@ -87,19 +87,14 @@ export default class ToNumber extends Mockit<number> {
     const { Count, Config } = this.params;
     let result: number;
     if (Count) {
-      const {range, containsMin, containsMax} = Count;
+      const { range } = Count;
       const step = Config && Config.step;
       let [min, max] = range;
       min = min.trim();
       max = max.trim();
       if(min && max && step) {
-        const minPlus = containsMin ? 0 : 1;
-        let maxPlus = (max - min) / step;
-        if(maxPlus % 1 === 0 && !containsMax) {
-          maxPlus--;
-        } else {
-          maxPlus = Math.floor(maxPlus);
-        }
+        const minPlus = 0;
+        const maxPlus = Math.floor((max - min) / step);
         if(maxPlus > minPlus) {
           return +min + step * (minPlus + Math.floor(Math.random() * (maxPlus - minPlus)));
         }
@@ -107,7 +102,7 @@ export default class ToNumber extends Mockit<number> {
         min = min ? Number.MIN_SAFE_INTEGER || Number.MIN_VALUE : min;
         max = max ? Number.MAX_SAFE_INTEGER || Number.MAX_VALUE : max;
       }
-      result = +min + (max - min) * factor(1 * containsMin + 2 * containsMax);
+      result = +min + (max - min) * factor(3);
     } else {
       result = Math.random() * Math.pow(10, Math.floor(10 * Math.random()));
       result = isOptional() ? -result : result;
