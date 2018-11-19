@@ -24,8 +24,6 @@ export interface ParamsLength {
  * @interface ParamsCount
  */
 export interface ParamsCount {
-  containsMin: boolean;
-  containsMax: boolean;
   range: Array<string | number>;
 }
 /**
@@ -82,6 +80,7 @@ export interface ParserConfig {
   endTag: string[];
   separator?: string;
   splitor?: string;
+  rule?: RegExp;
 }
 export interface ParserInstance {
   config: ParserConfig;

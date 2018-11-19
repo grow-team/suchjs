@@ -1,4 +1,4 @@
-import { ParserConfig } from '@/config';
+import { ParserConfig, ParserInstance } from '@/config';
 import * as Utils from '@/helpers/utils';
 import { NormalObject } from '@/types';
 export interface Tags {
@@ -14,175 +14,69 @@ export interface ParserConstructor extends ParserConfig {
  * @interface ParserInterface
  */
 export abstract class ParserInterface {
-  // 最终获取的信息，参数及开始结束标签
   protected params: string[];
   protected tags: Tags;
-  // 是否已转义
-  protected isInTrans: boolean;
-  // 匹配开始标记相关
-  protected startTagOk: boolean;
-  protected matchedStartTagList: string[];
-  protected startTagMatchedSeg: string;
-  // 匹配结束标记相关
-  protected hasEndTag: boolean;
-  protected endTagOk: boolean;
-  protected matchedEndTagList: string[];
-  protected endTagMatchedSeg: string;
-  // 参数索引
-  protected paramIndex: number;
-  //
-  protected isPrevSeparator: boolean;
-  //
-  protected isSeparator: boolean;
+  protected code: string = '';
+  protected setting: NormalObject = {
+    frozen: true,
+  };
   // constructor
   constructor() {
     this.init();
   }
   // init
   public init() {
-    // 如果没有结束标签，表示不需要界定结束标签
     this.params = [];
     this.tags = {
       start: '',
       end: '',
     };
-    this.isInTrans = false;
-    // match start tag
-    this.startTagMatchedSeg = '';
-    this.startTagOk = false;
-    this.matchedStartTagList = [];
-    // match end tag
-    this.hasEndTag = (this.constructor as ParserConstructor).endTag.length > 0;
-    this.endTagOk = false;
-    this.matchedEndTagList = [];
-    this.endTagMatchedSeg = '';
-    // param index
-    this.paramIndex = 0;
-    //
-    this.isPrevSeparator = false;
-    // 返回this
     return this;
   }
-  // 获取参数解析信息
+  // get all info
   public info() {
+    const { tags, params, code } = this;
     return {
-      tags: this.tags,
-      params: this.params,
+      tags,
+      params,
+      code,
     };
-  }
-  //
-  public isEndOk() {
-    return this.endTagOk;
   }
   //
   public showError(err: string): never {
     throw new Error(err);
   }
-  // 往Parser里添加code
-  public addCode(code?: string) {
-    const forceEnd = code === undefined;
-    // 强制结束解析
-    if (forceEnd) {
-      if (!this.hasEndTag) {
-        if (this.isInTrans) {
-          return this.showError('wrong translate char at the end');
-        } else {
-          return this.endTagOk = true;
-        }
-      } else {
-        if (this.endTagOk) {
-          return;
-        } else {
-          return this.showError('标签没有正确结束');
-        }
-      }
+  // parse code
+  public parseCode(code: string, tags: Tags) {
+    this.code = code;
+    this.tags = tags;
+    const { start, end } = tags;
+    const constr = this.constructor as ParserConstructor;
+    const { separator } = constr;
+    if(!separator && !end) {
+      this.params = [code];
     } else {
-      if (this.endTagOk) {
-        return this.showError('标签已解析完成，不能添加新的解析字符');
-      }
-      //
-      const constr = this.constructor as ParserConstructor;
-      const { startTag, endTag, separator, splitor } = constr;
-      // startTag not matched yet
-      if (!this.startTagOk) {
-        const maybeTags = this.startTagMatchedSeg === '' ? startTag : this.matchedStartTagList;
-        const matched = maybeTags.filter((tag) => {
-          return tag.charAt(this.startTagMatchedSeg.length) === code;
-        });
-        if (matched.length) {
-          this.matchedStartTagList = matched;
-          this.startTagMatchedSeg += code;
+      const params = [];
+      const sliceInfo = [start.length].concat(end ? -end.length : []);
+      const res = code.slice(...sliceInfo);
+      let seg = '';
+      for(let i = 0, j = res.length; i < j; i++) {
+        const cur = res.charAt(i);
+        if(cur === '\\') {
+          seg += '\\' + res.charAt(i++);
         } else {
-          if (maybeTags.indexOf(this.startTagMatchedSeg) > -1) {
-            this.tags.start = this.startTagMatchedSeg;
-            this.startTagOk = true;
+          if(cur === separator) {
+            params.push(seg);
+            seg = '';
           } else {
-            return this.showError('解析有误，开始标签不匹配');
+            seg += cur;
           }
         }
       }
-      // after matched startTag
-      if (this.startTagOk) {
-        if (!this.endTagOk) {
-          let needAddToParam = true;
-          const { isInTrans } = this;
-          if (!isInTrans) {
-            if (this.hasEndTag) {
-              const hasMatchedSeg = this.endTagMatchedSeg !== '';
-              const maybeTags = hasMatchedSeg ? this.matchedEndTagList : endTag;
-              const nextCode = this.endTagMatchedSeg + code;
-              const matched = maybeTags.filter((tag) => {
-                return tag.indexOf(nextCode) === 0;
-              });
-              const totalMatched = matched.length;
-              if (totalMatched) {
-                if (totalMatched === 1 && maybeTags.indexOf(nextCode) > -1) {
-                  this.endTagOk = true;
-                  this.tags.end = nextCode;
-                  needAddToParam = false;
-                  if (nextCode.length > 1) {
-                    this.params[this.paramIndex] = this.params[this.paramIndex].slice(0, - (nextCode.length - 1));
-                  } else if(this.isPrevSeparator) {
-                    this.params[this.paramIndex] = '';
-                  }
-                } else {
-                  this.matchedEndTagList = matched;
-                  this.endTagMatchedSeg = nextCode;
-                }
-              } else {
-                this.matchedEndTagList = [];
-                this.endTagMatchedSeg = '';
-              }
-            }
-            if (code === separator) {
-              needAddToParam = false;
-              if(this.paramIndex === 0 && this.params[0] === undefined) {
-                this.params[0] = '';
-              }
-              this.paramIndex++;
-              this.isPrevSeparator = true;
-            } else {
-              this.isPrevSeparator = false;
-              if (code === '\\') {
-                this.isInTrans = true;
-              }
-            }
-          } else {
-            this.isInTrans = false;
-          }
-          if (needAddToParam) {
-            const { params, paramIndex } = this;
-            if (params[paramIndex] === undefined) {
-              params[paramIndex] = code;
-            } else {
-              if(isInTrans && (code === splitor || code === separator || endTag.indexOf(code) > -1)) {
-                params[paramIndex] = params[paramIndex].slice(0, -1);
-              }
-              params[paramIndex] += code;
-            }
-          }
-        }
+      if(params.length || seg) {
+        params.push(seg);
       }
+      this.params = params;
     }
   }
   /**
@@ -241,41 +135,73 @@ export class Dispatcher {
    * @returns {(never|void)}
    * @memberof Dispatcher
    */
-  public addParser(name: string, config: ParserConfig, parse: () => void): never | void {
-    const {startTag, endTag, separator} = config;
+  public addParser(name: string, config: ParserConfig, parse: () => void, setting?: NormalObject): never | void {
+    const { startTag, endTag, separator } = config;
     const { splitor } = this;
     if(separator === splitor) {
       return this.halt(`the parser of ${name} can not set '${splitor}' as separator.`);
     }
     if (this.parsers.hasOwnProperty(name)) {
-      return this.halt(`${name}的parser已经存在，请查看命名`);
+      return this.halt(`the parser of "${name}" has existed.`);
     }
     if (startTag.length === 0) {
-      return this.halt(`${name}的解析器开始标签不能为空`);
+      return this.halt(`the parser of "${name}"'s startTag can not be empty. `);
     }
     if (/(\\|:|\s)/.test(startTag.concat(endTag).join(''))) {
       const char = RegExp.$1;
-      return this.halt(`${name}的解析器开始或者结束标签里不能包含特殊含义字符(${char})`);
+      return this.halt(`the parser of "${name}" contains special char (${char})`);
     }
     //
+    let rule = config.rule;
     const pairs: string[] = [];
+    const hasRule = endTag.length === 0 && rule instanceof RegExp;
+    if(!hasRule) {
+      const sortFn = (a: string, b: string) => b.length > a.length ? 1 : -1;
+      startTag.sort(sortFn);
+      endTag.sort(sortFn);
+    }
+    const startRuleSegs: string[] = [];
+    const endRuleSegs: string[] = [];
+    const specialRepRule = /([()[{^$.*+?-])/g;
+    const specialRepValue = '\\$1';
     startTag.map((start) => {
-      if (endTag.length > 1) {
+      if(!hasRule) {
+        startRuleSegs.push(start.replace(specialRepRule, specialRepValue));
+      }
+      if (endTag.length) {
         endTag.map((end) => {
           pairs.push(start + splitor + end);
+          if(!hasRule) {
+            endRuleSegs.push(end.replace(specialRepRule, specialRepValue));
+          }
         });
       } else {
-        pairs.push([start].concat(endTag).join(splitor));
+        pairs.push(start);
       }
     });
+    // check if exists
     for (let i = 0, j = pairs.length; i < j; i++) {
       const cur = pairs[i];
       if (this.tagPairs.indexOf(cur) > -1) {
         const pair = cur.split(splitor);
-        return this.halt(`${name}的解析器开始标签(${pair[0]})与结束标签(${pair[1]})的组合已经存在于其它解析器`);
+        return this.halt(`the parser of "${name}"'s start tag "${pair[0]}" and end tag "${pair[1]}" has existed.`);
       } else {
         this.pairHash[cur] = name;
       }
+    }
+    // build rule
+    if(!hasRule) {
+      const hasEnd = endTag.length;
+      const endWith = `(?=${splitor.replace(specialRepRule, specialRepValue)}|$)`;
+      const startWith = `(?:${startRuleSegs.join('|')})`;
+      let context: string;
+      if(hasEnd) {
+        const endFilter = endRuleSegs.join('|');
+        context = `${startWith}(?:\\\\.|[^\\\\](?!${endFilter})|[^\\\\])+?(?:${endFilter}${endWith})`;
+      } else {
+        context = `${startWith}(?:\\\\.|[^\\\\${splitor}])+?${endWith}`;
+      }
+      rule = new RegExp(context);
     }
     //
     this.tagPairs = this.tagPairs.concat(pairs);
@@ -286,6 +212,13 @@ export class Dispatcher {
       public static readonly endTag: any[] = endTag;
       public static readonly separator: string = separator || '';
       public static readonly splitor: string = splitor;
+      public static readonly rule: RegExp = rule;
+      constructor() {
+        super();
+        if(setting) {
+          this.setting = Object.assign(this.setting, setting);
+        }
+      }
       public parse() {
         return parse.call(this);
       }
@@ -298,100 +231,120 @@ export class Dispatcher {
    * @memberof Dispatcher
    */
   public parse(code: string): NormalObject | never {
-    const segs: string[] = [];
+    const len = code.length;
     const { splitor } = this;
-    let isInTrans = false;
-    let seg: string = '';
-    // 去掉首尾的空格
-    for (let i = 0, j = code.length; i < j; i++) {
-      const cur = code[i];
-      if (!isInTrans) {
-        if (cur === splitor) {
-          segs.push(seg.trim());
-          seg = '';
+    let index = 0;
+    let curCode = code;
+    const exists: NormalObject = {};
+    const result: NormalObject = {};
+    while(index < len) {
+      const res: NormalObject | never = this.parseUntilFind(curCode);
+      const { data, total } = res as NormalObject;
+      console.log(data, total, '匹配到的结果');
+      index += total;
+      if(index < len) {
+        if(splitor !== code.charAt(index)) {
+          throw new Error(`unexpect splitor of "${code.slice(index + 1)}",expect to be ${splitor}`);
         } else {
-          seg += cur;
-          if (cur === '\\') {
-            isInTrans = true;
-          }
+          curCode = curCode.slice(++index);
         }
+      }
+      const { instance, type } = data;
+      if(exists[type] && instance.setting.frozen) {
+        console.log('should not go here');
+        throw new Error(`the config of "${type}" can not be set again.`);
       } else {
-        seg += cur;
-        isInTrans = false;
+        Object.assign(result, {
+          [type]: instance.parse(),
+        });
+        exists[type] = true;
       }
     }
-    segs.push(seg.trim());
-    //
-    const result = {};
-    console.log('segs', segs);
-    segs.map((cur) => {
-      Object.assign(result, this.match(cur));
-    });
     return result;
   }
-  /**
-   *
-   *
-   * @protected
-   * @param {string} seg
-   * @returns {(never|NormalObject)}
-   * @memberof Dispatcher
-   */
-  protected match(seg: string): never | NormalObject {
-    const { splitor } = this;
-    let matchedStart = seg.charAt(0);
-    let matchedPairs: string[] = getMatchedPairs(this.tagPairs, matchedStart);
-    if (matchedPairs.length === 0) {
-      return this.halt('没有找到匹配的参数开始标签');
+  protected getInstance(name: string) {
+    if (this.instances[name]) {
+      return this.instances[name].init();
+    } else {
+      return this.instances[name] = new this.parsers[name]();
     }
-    let maybePairs: string[] = getExactPairs(matchedPairs, matchedStart, seg, splitor);
-    for (let i = 1, j = seg.length; i < j; i++) {
-      matchedStart += seg.charAt(i);
-      const nextPairs = getMatchedPairs(matchedPairs, matchedStart);
-      if (nextPairs.length === 0) {
+  }
+  protected parseUntilFind(context: string) {
+    const { tagPairs, pairHash, splitor, parsers } = this;
+    const exactMatched: string[] = [];
+    const error = `no found matched parser type.`;
+    let allMatched: string[] = [];
+    let startIndex = 0;
+    let sub: string = '';
+    let result: null | NormalObject = null;
+    do {
+      const cur = context.charAt(startIndex++);
+      sub +=  cur;
+      const total = sub.length;
+      let isExactFind = false;
+      allMatched = tagPairs.filter((pair) => {
+        const flag = pair.indexOf(sub) === 0;
+        if(flag && (pair === sub || pair.charAt(total) === splitor)) {
+          isExactFind = true;
+          exactMatched.push(pair);
+        }
+        return flag;
+      });
+      if(allMatched.length === 1) {
+        if(!isExactFind) {
+          const [ pair ] = allMatched;
+          const index = pair.indexOf(splitor);
+          const find = index > 0 ? pair.slice(0, index) : pair;
+          if(context.indexOf(find) === 0) {
+            exactMatched.push(pair);
+          }
+        }
         break;
-      } else {
-        matchedPairs = nextPairs;
-        maybePairs = maybePairs.concat(getExactPairs(matchedPairs, matchedStart, seg, splitor));
       }
-    }
-    if (maybePairs.length === 0) {
-      return this.halt('没有找到匹配的参数解析器');
-    }
-    const parserNames: string[] = [];
-    for (let t = maybePairs.length - 1; t >= 0; t--) {
-      const pair = maybePairs[t];
-      const name = this.pairHash[pair];
-      if (parserNames.indexOf(name) < 0) {
-        parserNames.push(name);
-      }
-    }
-    let curName: string;
-    while ((curName = parserNames.shift()) !== undefined) {
-      let instance: ParserInterface;
-      if (this.instances.hasOwnProperty(curName)) {
-        instance = this.instances[curName].init();
-      } else {
-        this.instances[curName] = instance = new this.parsers[curName]();
-      }
-      try {
-        Utils.map(seg, (char, index) => {
-          instance.addCode(char);
-        });
-        instance.addCode();
-        if (instance.isEndOk()) {
-          return {
-            [curName]: instance.parse(),
-          };
-        } else {
-          throw new Error('错误的解析');
+    } while (allMatched.length);
+    let len = exactMatched.length;
+    if(len) {
+      const everTested: NormalObject = {};
+      while(len--) {
+        const pair = exactMatched[len];
+        const type = pairHash[pair];
+        if(everTested[type]) {
+          continue;
         }
-      } catch (e) {
-        // continue
-        if (parserNames.length === 0) {
-          return this.halt(e.message);
+        let match = null;
+        const parser = parsers[type];
+        const { rule } = parser;
+        if(match = context.match(rule)) {
+          const instance = this.getInstance(type);
+          const [ start, end ] = pair.split(splitor);
+          const [ param ] = match;
+          try {
+            instance.parseCode(param, {
+              start,
+              end: end || '',
+            });
+            result = {
+              data: {
+                type,
+                instance,
+              },
+              total: param.length,
+            };
+            break;
+          } catch(e) {
+            // ignore
+            console.log('the wrong is', e.message);
+            everTested[type] = true;
+          }
         }
       }
+      if(result) {
+        return result;
+      } else {
+        throw new Error(error);
+      }
+    } else {
+      throw new Error(error);
     }
   }
 }

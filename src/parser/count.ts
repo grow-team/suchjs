@@ -6,10 +6,8 @@ const parser: ParserInstance =  {
     separator: ',',
   },
   parse(): ParamsCount | never {
-    const { params, tags } = this.info();
+    const { params } = this.info();
     return {
-      containsMin: tags.start === '[',
-      containsMax: tags.end === ']',
       range: params,
     };
   },

@@ -10,7 +10,7 @@ const parser: ParserInstance =  {
       return this.showError(`wrong format param:${params.join('')}`);
     }
     return {
-      format: '%' + params[0],
+      format: params[0],
     };
   },
 };

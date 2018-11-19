@@ -1,8 +1,10 @@
+import { parserRule } from '@/helpers/regexp';
 import { ParamsRegexp, ParserInstance } from '../config';
 const parser: ParserInstance =  {
   config: {
-    startTag: ['$'],
+    startTag: ['/'],
     endTag: [],
+    rule: parserRule,
   },
   parse(): ParamsRegexp | never {
     const { params } = this.info();

@@ -50,7 +50,9 @@ const flagsBinary: FlagsBinary = {
   m: 0b010000,
   y: 0b100000,
 };
-export const regexpRule = new RegExp(`^\/(.+)\/([${Object.keys(flagsBinary).join('')}]*)$`);
+const flagItems = Object.keys(flagsBinary).join('');
+export const parserRule = new RegExp(`^\/(?:\\\\.|[^\\\\](?!\/)|[^\\\\])+?\/[${flagItems}]*`);
+export const regexpRule = new RegExp(`^\/((?:\\\\.|[^\\\\](?!\/)|[^\\\\])+?)\/([${flagItems}]*)$`);
 /**
  *
  *
