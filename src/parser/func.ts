@@ -7,7 +7,9 @@ const parser: ParserInstance =  {
   },
   parse(): ParamsFunc | never {
     const {params} = this.info();
-    if(params.length !== 2) {return this.showError(''); }
+    if(params.length !== 2) {
+      return this.halt('');
+    }
     return [];
   },
 };

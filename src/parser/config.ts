@@ -34,20 +34,20 @@ const parser: ParserInstance =  {
               if(regexpRule.test(value)) {
                 config[key] = getExp(value);
               } else {
-                throw new Error(`wrong regexp:${value}`);
+                this.halt(`wrong regexp:${value}`);
               }
             } else if(!isNaN(Number(value))) {
               config[key] = Number(value);
             } else if(allowValues.indexOf(value) > -1) {
               config[key] = getExp(value);
             } else {
-              throw new Error(`wrong param:${param}`);
+              this.halt(`wrong param:${param}`);
             }
           } else {
             config[key] = true;
           }
         } else {
-          throw new Error(`the config params of index ${i} "${param}" is wrong,please check it.`);
+          this.halt(`the config params of index ${i} "${param}" is wrong,please check it.`);
         }
       }
     }

@@ -79,10 +79,10 @@ export interface ParserConfig {
   startTag: string[];
   endTag: string[];
   separator?: string;
-  splitor?: string;
   rule?: RegExp;
 }
 export interface ParserInstance {
   config: ParserConfig;
+  setting?: object;
   parse(): object | never;
 }

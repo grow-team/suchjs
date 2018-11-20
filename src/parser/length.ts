@@ -7,7 +7,9 @@ const parser: ParserInstance =  {
   },
   parse(): ParamsLength | never {
     const {params} = this.info();
-    if(params.length > 2) {return this.showError('The length should not have more than 2 params'); }
+    if(params.length > 2) {
+      return this.halt('The length should not have more than 2 params');
+    }
     return {
       least: params[0],
       most: params[params.length - 1],

@@ -1,11 +1,11 @@
-import { ParserConfig, ParserInstance } from '@/config';
-import * as Utils from '@/helpers/utils';
+import { ParserConfig } from '@/config';
 import { NormalObject } from '@/types';
 export interface Tags {
   start: string;
   end: string;
 }
 export interface ParserConstructor extends ParserConfig {
+  readonly splitor?: string;
   new (): ParserInterface;
 }
 /**
@@ -24,7 +24,12 @@ export abstract class ParserInterface {
   constructor() {
     this.init();
   }
-  // init
+  /**
+   *
+   *
+   * @returns
+   * @memberof ParserInterface
+   */
   public init() {
     this.params = [];
     this.tags = {
@@ -33,7 +38,12 @@ export abstract class ParserInterface {
     };
     return this;
   }
-  // get all info
+  /**
+   *
+   *
+   * @returns
+   * @memberof ParserInterface
+   */
   public info() {
     const { tags, params, code } = this;
     return {
@@ -42,11 +52,13 @@ export abstract class ParserInterface {
       code,
     };
   }
-  //
-  public showError(err: string): never {
-    throw new Error(err);
-  }
-  // parse code
+  /**
+   *
+   *
+   * @param {string} code
+   * @param {Tags} tags
+   * @memberof ParserInterface
+   */
   public parseCode(code: string, tags: Tags) {
     this.code = code;
     this.tags = tags;
@@ -87,6 +99,17 @@ export abstract class ParserInterface {
    * @memberof ParserInterface
    */
   public abstract parse(): object | never;
+  /**
+   *
+   *
+   * @protected
+   * @param {string} err
+   * @returns {never}
+   * @memberof ParserInterface
+   */
+  protected halt(err: string): never {
+    throw new Error(err);
+  }
 }
 //
 export interface ParserList {
@@ -96,18 +119,6 @@ export interface ParserList {
 export interface ParserInstances {
   [index: string]: ParserInterface;
 }
-//
-const getMatchedPairs = (pairs: string[], search = '') => {
-  return pairs.filter((pair) => {
-    return pair.indexOf(search) === 0;
-  });
-};
-const getExactPairs = (pairs: string[], search = '', seg: string, splitor: string) => {
-  const len = search.length;
-  return pairs.filter((pair) => {
-    return pair.length === len || (pair.charAt(len) === splitor && seg.indexOf(pair.split(splitor)[1]) >= len);
-  });
-};
 /**
  * 所有Parser的入口，分配器
  *
@@ -122,10 +133,6 @@ export class Dispatcher {
   protected pairHash: NormalObject = {};
   protected readonly splitor: string = ':';
   protected instances: ParserInstances = {};
-  //
-  public halt(err: string): never {
-    throw new Error(err);
-  }
   /**
    *
    *
@@ -139,7 +146,7 @@ export class Dispatcher {
     const { startTag, endTag, separator } = config;
     const { splitor } = this;
     if(separator === splitor) {
-      return this.halt(`the parser of ${name} can not set '${splitor}' as separator.`);
+      return this.halt(`the parser of "${name}" can not set '${splitor}' as separator.`);
     }
     if (this.parsers.hasOwnProperty(name)) {
       return this.halt(`the parser of "${name}" has existed.`);
@@ -203,9 +210,10 @@ export class Dispatcher {
       }
       rule = new RegExp(context);
     }
-    //
-    this.tagPairs = this.tagPairs.concat(pairs);
-    // make sure startTag and endTag combine is unique
+    // make sure startTag and endTag combine is unique, sort for max match.
+    this.tagPairs = this.tagPairs.concat(pairs).sort((a, b) => {
+      return a.length - b.length;
+    });
     // tslint:disable-next-line:max-classes-per-file
     this.parsers[name] = class extends ParserInterface {
       public static readonly startTag: any[] = startTag;
@@ -240,28 +248,34 @@ export class Dispatcher {
     while(index < len) {
       const res: NormalObject | never = this.parseUntilFind(curCode);
       const { data, total } = res as NormalObject;
-      console.log(data, total, '匹配到的结果');
       index += total;
-      if(index < len) {
-        if(splitor !== code.charAt(index)) {
-          throw new Error(`unexpect splitor of "${code.slice(index + 1)}",expect to be ${splitor}`);
-        } else {
-          curCode = curCode.slice(++index);
-        }
+      if(index < len && splitor !== code.charAt(index)) {
+        throw new Error(`unexpect splitor of "${code.slice(index)}",expect to be started with splitor "${splitor}"`);
+      } else {
+        curCode = curCode.slice(total + 1);
+        index += 1;
       }
       const { instance, type } = data;
       if(exists[type] && instance.setting.frozen) {
-        console.log('should not go here');
-        throw new Error(`the config of "${type}" can not be set again.`);
+        throw new Error(`the config of "${type}" (${instance.code}) can not be set again.`);
       } else {
-        Object.assign(result, {
-          [type]: instance.parse(),
-        });
+        result[type] = {
+          ...result[type] || {},
+          ...instance.parse(),
+        };
         exists[type] = true;
       }
     }
     return result;
   }
+  /**
+   *
+   *
+   * @protected
+   * @param {string} name
+   * @returns
+   * @memberof Dispatcher
+   */
   protected getInstance(name: string) {
     if (this.instances[name]) {
       return this.instances[name].init();
@@ -269,10 +283,21 @@ export class Dispatcher {
       return this.instances[name] = new this.parsers[name]();
     }
   }
+  /**
+   *
+   *
+   * @protected
+   * @param {string} context
+   * @returns
+   * @memberof Dispatcher
+   */
   protected parseUntilFind(context: string) {
+    if(context === '') {
+      throw new Error('the context is empty');
+    }
     const { tagPairs, pairHash, splitor, parsers } = this;
     const exactMatched: string[] = [];
-    const error = `no found matched parser type.`;
+    const error = 'no found matched parser type.';
     let allMatched: string[] = [];
     let startIndex = 0;
     let sub: string = '';
@@ -333,7 +358,6 @@ export class Dispatcher {
             break;
           } catch(e) {
             // ignore
-            console.log('the wrong is', e.message);
             everTested[type] = true;
           }
         }
@@ -346,5 +370,16 @@ export class Dispatcher {
     } else {
       throw new Error(error);
     }
+  }
+  /**
+   *
+   *
+   * @protected
+   * @param {string} err
+   * @returns {never}
+   * @memberof Dispatcher
+   */
+  protected halt(err: string): never {
+    throw new Error(err);
   }
 }
