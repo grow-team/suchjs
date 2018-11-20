@@ -5,7 +5,7 @@ const parser: ParserInstance =  {
     endTag: [],
   },
   parse(): ParamsFormat | never {
-    const {params} = this.info();
+    const { params } = this.info();
     if(params.length !== 1) {
       return this.halt(`wrong format param:${params.join('')}`);
     }

@@ -10,7 +10,6 @@ export default abstract class Mockit<T> {
   protected modifierFns: NormalObject = {};
   protected params: NormalObject = {};
   protected generateFn: undefined | (() => Result<T>);
-  protected frozenRules: string[] = [];
   protected ignoreRules: string[] = [];
   /**
    * Creates an instance of Mockit.
@@ -67,28 +66,24 @@ export default abstract class Mockit<T> {
     } else if (typeof key === 'string') {
       params[key] = value;
     }
-    const {rules, ruleFns, frozenRules} = this;
+    const { rules, ruleFns } = this;
     const keys = Object.keys(params);
     (keys.length > 1 ? keys.sort((a: string, b: string) => {
       return rules.indexOf(a) < rules.indexOf(b) ? 1 : -1;
     }) : keys).map((name: string) => {
-      if (frozenRules.indexOf(name) > -1) {
-        throw new Error(`The ${name} param is frozen in this type,you can't set it again.`);
-      } else {
-        if (rules.indexOf(name) > -1) {
-          try {
-            const res = ruleFns[name].call(this, params[name]);
-            if (typeof res === 'object') {
-              this.params[name] = res;
-            } else {
-              this.params[name] = params[name];
-            }
-          } catch (e) {
-            throw e;
+      if (rules.indexOf(name) > -1) {
+        try {
+          const res = ruleFns[name].call(this, params[name]);
+          if (typeof res === 'object') {
+            this.params[name] = res;
+          } else {
+            this.params[name] = params[name];
           }
-        } else {
-          throw new Error(`Unsupported param (${name})`);
+        } catch (e) {
+          throw e;
         }
+      } else {
+        throw new Error(`Unsupported param (${name})`);
       }
     });
     return params;
@@ -110,7 +105,7 @@ export default abstract class Mockit<T> {
    * @memberof Mockit
    */
   public make(Such?: NormalObject): Result<T> {
-    const {modifiers, params} = this;
+    const { modifiers, params } = this;
     let result = typeof this.generateFn === 'function' ? this.generateFn.call(this) : this.generate();
     for (let i = 0, j = modifiers.length; i < j; i++) {
       const name = modifiers[i];
@@ -142,19 +137,6 @@ export default abstract class Mockit<T> {
    * @memberof Mockit
    */
   public abstract test(target: T): boolean;
-  /**
-   *
-   *
-   * @protected
-   * @param {*} key
-   * @param {*} value
-   * @returns {(void|never)}
-   * @memberof Mockit
-   */
-  protected setFrozenParams(key: any, value: any): void | never {
-    const params = this.setParams(key, value);
-    this.frozenRules = this.frozenRules.concat(Object.keys(params));
-  }
   /**
    *
    *

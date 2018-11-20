@@ -75,7 +75,7 @@ export abstract class ParserInterface {
       for(let i = 0, j = res.length; i < j; i++) {
         const cur = res.charAt(i);
         if(cur === '\\') {
-          seg += '\\' + res.charAt(i++);
+          seg += '\\' + res.charAt(++i);
         } else {
           if(cur === separator) {
             params.push(seg);
@@ -297,7 +297,7 @@ export class Dispatcher {
     }
     const { tagPairs, pairHash, splitor, parsers } = this;
     const exactMatched: string[] = [];
-    const error = 'no found matched parser type.';
+    const error = `can not parse context "${context}",no parser matched.`;
     let allMatched: string[] = [];
     let startIndex = 0;
     let sub: string = '';

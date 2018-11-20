@@ -53,5 +53,8 @@ const parser: ParserInstance =  {
     }
     return config;
   },
+  setting: {
+    frozen: false,
+  },
 };
 export default parser;

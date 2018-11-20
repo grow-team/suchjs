@@ -10,7 +10,6 @@ export default class ToRegexp extends Mockit<string> {
   public init() {
     // regexp rule
     this.addRule('Regexp', (Regexp: ParamsRegexp) => {
-      //
       const { rule } = Regexp;
       if(!regexpRule.test(rule)) {
         throw new Error('wrong regexp expression');

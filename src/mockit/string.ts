@@ -29,29 +29,29 @@ export default class ToString extends Mockit<string> {
         let secondNum: number;
         if(range.length > 2) {
           // tslint:disable-next-line:max-line-length
-          throw new Error(`The count of range should have just 2 params,if you want support some specail point code,you can set the param like this,[${first}-${first},...]`);
+          throw new Error(`the count of range should have just 2 params,if you want support some specail point code,you can set the param like this,[${first}-${first},...]`);
         } else {
           if(isFirstUni) {
             firstNum = hex2num(RegExp.$1);
             if(!uniRule.test(second)) {
-              throw new Error(`The max param "${second}" should use unicode too.`);
+              throw new Error(`the max param "${second}" should use unicode too.`);
             } else {
               secondNum = hex2num(RegExp.$1);
             }
           } else {
             firstNum = Number(first);
             if(!numRule.test(second)) {
-              throw new Error(`The max param "${second}" is not a number.`);
+              throw new Error(`the max param "${second}" is not a number.`);
             } else {
               secondNum = Number(second);
             }
           }
         }
         if(secondNum < firstNum) {
-          throw new Error(`The min param '${first}' is big than the max param '${second}'`);
+          throw new Error(`the min param '${first}' is big than the max param '${second}'`);
         } else {
           if(secondNum > maxCodeNum) {
-            throw new Error(`The max param's unicode point is big than the max point (${second} > '0x10ffff')`);
+            throw new Error(`the max param's unicode point is big than the max point (${second} > '0x10ffff')`);
           } else {
             result.push([firstNum, secondNum]);
           }
@@ -59,6 +59,7 @@ export default class ToString extends Mockit<string> {
       } else {
         const uniRangeRule = /^\\u((?:[0-9a-f]{2}){2,3})\-\\u((?:[0-9a-f]{2}){2,3})$/i;
         const numRangeRule = /^(\d+)\-(\d+)$/;
+        console.log('range is', range);
         range.map((code: string, index: number) => {
           let match: null | any[];
           let firstNum: number;
@@ -74,13 +75,13 @@ export default class ToString extends Mockit<string> {
             isRange = false;
             firstNum = secondNum = Number(match[0]);
           } else {
-            throw new Error(`The param of index ${index}(${code}) is a wrong range or number.`);
+            throw new Error(`the param of index ${index}(${code}) is a wrong range or number.`);
           }
           if(isRange && secondNum < firstNum) {
-            throw new Error(`The param of index ${index}'s range is wrong.(${match[1]} > ${match[2]})`);
+            throw new Error(`the param of index ${index}'s range is wrong.(${match[1]} > ${match[2]})`);
           }
           if(secondNum > maxCodeNum) {
-            throw new Error(`The param of index ${index}'s code point(${secondNum}) is big than 0x10ffff`);
+            throw new Error(`the param of index ${index}'s code point(${secondNum}) is big than 0x10ffff`);
           } else {
             result.push([firstNum, secondNum]);
           }
