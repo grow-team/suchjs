@@ -1,5 +1,5 @@
-import { parserRule } from '@/helpers/regexp';
-import { ParamsRegexp, ParserInstance } from '../config';
+import { parserRule } from '../helpers/regexp';
+import { ParamsRegexp, ParserInstance } from '../types';
 const parser: ParserInstance =  {
   config: {
     startTag: ['/'],

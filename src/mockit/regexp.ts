@@ -1,6 +1,5 @@
-import { ParamsRegexp } from '@/config';
-import RegexpParser, { regexpRule } from '@/helpers/regexp';
-import { NormalObject } from '@/types';
+import RegexpParser, { regexpRule } from '../helpers/regexp';
+import { NormalObject, ParamsRegexp } from '../types';
 import Mockit from './namespace';
 export default class ToRegexp extends Mockit<string> {
   private instance: RegexpParser;

@@ -1,15 +1,7 @@
-import { regexpRule } from '@/helpers/regexp';
-import { decodeTrans } from '@/helpers/utils';
-import { NormalObject } from '@/types';
-import { ParamsConfig, ParserInstance } from '../config';
-const getExp = (exp: string): any | never => {
-  const fn = new Function('', `return ${exp}`);
-  try {
-    return fn();
-  } catch(e) {
-    throw new Error(`wrong expression of "${exp}".reason:${e}`);
-  }
-};
+import { regexpRule } from '../helpers/regexp';
+import { decodeTrans, getExp } from '../helpers/utils';
+import { NormalObject, ParamsConfig, ParserInstance } from '../types';
+
 const parser: ParserInstance =  {
   config: {
     startTag: ['#['],

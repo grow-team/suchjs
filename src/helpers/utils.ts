@@ -1,7 +1,11 @@
-import { NormalObject } from '@/types';
+import { NormalObject } from '../types';
+export const encodeRegexpChars = (chars: string) => {
+  return chars.replace(/([()[{^$.*+?-])/g, '\\$1');
+};
 export const typeOf = (target: any): string => {
   return Object.prototype.toString.call(target).slice(8, -1);
 };
+export const isFn = (target: any): boolean => typeof target === 'function';
 export const map = (target: (any[] | NormalObject | string), fn: (item: any, index: number | string) => void) => {
   if(typeOf(target) === 'Array') {
     return (target as any[]).map(fn);
@@ -85,4 +89,12 @@ export const capitalize = (target: string): string => {
 };
 export const decodeTrans = (target: string): string => {
   return target.replace(/\\(.)/g, (_, res) => res);
+};
+export const getExp = (exp: string): any | never => {
+  const fn = new Function('', `return ${exp}`);
+  try {
+    return fn();
+  } catch(e) {
+    throw new Error(`wrong expression of "${exp}".reason:${e}`);
+  }
 };

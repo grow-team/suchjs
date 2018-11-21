@@ -1,6 +1,6 @@
-import { makeRandom } from '@/helpers/utils';
-import { NormalObject } from '@/types';
-import Mockit, { ModifierFn } from './namespace';
+import { makeRandom } from '../helpers/utils';
+import { NormalObject } from '../types';
+import Mockit from './namespace';
 
 const uniRule = /^\\u((?:[0-9a-f]{2}){2,3})$/i;
 const numRule = /^\d+$/;

@@ -1,4 +1,4 @@
-import { ParamsFormat, ParserInstance } from '../config';
+import { ParamsFormat, ParserInstance } from '../types';
 const parser: ParserInstance =  {
   config: {
     startTag: ['%'],

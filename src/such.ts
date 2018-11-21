@@ -1,9 +1,10 @@
-import { suchRule } from '@/config';
-import { isOptional, makeRandom, map, typeOf } from '@/helpers/utils';
-import * as mockitList from '@/mockit';
-import Mockit from '@/mockit/namespace';
-import Parser from '@/parser';
-import { NormalObject } from '@/types';
+import { suchRule } from './config';
+import modifierFns from './fns';
+import { isFn, isOptional, makeRandom, map, typeOf } from './helpers/utils';
+import * as mockitList from './mockit';
+import Mockit from './mockit/namespace';
+import Parser from './parser';
+import { NormalObject } from './types';
 /**
  *
  *
@@ -60,7 +61,7 @@ export interface MockitOptions {
 export type Xpath = Array<string | number>;
 
 // all mockits
-export const AllMockits: NormalObject = {};
+const AllMockits: NormalObject = {};
 map(mockitList, (item, key) => {
   if ((key as string).indexOf('_') === 0) {
     return;
@@ -130,7 +131,7 @@ export class ArrKeyMap<T> {
  * @class Mocker
  */
 // tslint:disable-next-line:max-classes-per-file
-class Mocker {
+export class Mocker {
   /**
    *
    *
@@ -356,7 +357,6 @@ class Mocker {
         if (meta !== '') {
           const params = Parser.parse(meta);
           instance.setParams(params);
-          console.log('当前params,', params);
         }
         this.mockit = instance;
         this.mockFn = () => instance.make(Such);
@@ -429,12 +429,14 @@ export default class Such {
       throw new Error(`the static "define" method's arguments is not right.`);
     }
     const opts = args.pop();
-    const config: MockitOptions = argsNum === 2 && typeof opts === 'string' ? ({ param: opts } as MockitOptions) : opts;
+    // tslint:disable-next-line:max-line-length
+    const config: MockitOptions = argsNum === 2 && typeof opts === 'string' ? ({ param: opts } as MockitOptions) : (argsNum === 1 && typeof opts === 'function' ? { generate: opts } : opts);
     const { param, init, generateFn, generate, ignoreRules } = config;
-    const params = Parser.parse(param);
+    const params = typeof param === 'string' ? Parser.parse(param) : {};
     if (!AllMockits.hasOwnProperty(type)) {
       // tslint:disable-next-line:max-line-length
       let klass;
+      const utils = { isOptional, makeRandom };
       if(argsNum === 2) {
         const baseType = args[0];
         const base = AllMockits[baseType as string];
@@ -449,10 +451,10 @@ export default class Such {
           }
           public init() {
             super.init();
-            if (typeof init === 'function') {
+            if (isFn(init)) {
               init.call(this);
             }
-            if (typeof generateFn === 'function') {
+            if (isFn(generateFn)) {
               this.reGenerate(generateFn);
             }
             this.setParams(params);
@@ -466,11 +468,13 @@ export default class Such {
             this.ignoreRules = ignoreRules || [];
           }
           public init() {
-            init.call(this);
+            if(isFn(init)) {
+              init.call(this);
+            }
             this.setParams(params, undefined);
           }
           public generate() {
-            generate.call(this);
+            generate.call(this, utils);
           }
           public test() {
             return true;
@@ -479,7 +483,7 @@ export default class Such {
       }
       AllMockits[type] = klass;
     } else {
-      throw new Error(`The type "${type}" has been defined yet.`);
+      throw new Error(`the type "${type}" has been defined yet.`);
     }
   }
   public readonly target: any;

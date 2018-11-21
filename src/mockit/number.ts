@@ -1,6 +1,6 @@
-import printf, {rule as formatRule } from '@/helpers/printf';
-import { isOptional } from '@/helpers/utils';
-import { NormalObject } from '@/types';
+import printf, {rule as formatRule } from '../helpers/printf';
+import { isOptional } from '../helpers/utils';
+import { NormalObject } from '../types';
 import Mockit, { ModifierFn } from './namespace';
 
 const factor = (type: number) => {

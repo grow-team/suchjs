@@ -1,5 +1,6 @@
-import { ParserConfig } from '@/config';
-import { NormalObject } from '@/types';
+import { encodeSplitor, splitor as confSplitor } from '../config';
+import { encodeRegexpChars, typeOf } from '../helpers/utils';
+import { NormalObject, ParserConfig } from '../types';
 export interface Tags {
   start: string;
   end: string;
@@ -15,6 +16,7 @@ export interface ParserConstructor extends ParserConfig {
  */
 export abstract class ParserInterface {
   protected params: string[];
+  protected patterns: any[][] = [];
   protected tags: Tags;
   protected code: string = '';
   protected setting: NormalObject = {
@@ -45,11 +47,12 @@ export abstract class ParserInterface {
    * @memberof ParserInterface
    */
   public info() {
-    const { tags, params, code } = this;
+    const { tags, params, code, patterns } = this;
     return {
       tags,
       params,
       code,
+      patterns,
     };
   }
   /**
@@ -64,29 +67,50 @@ export abstract class ParserInterface {
     this.tags = tags;
     const { start, end } = tags;
     const constr = this.constructor as ParserConstructor;
-    const { separator } = constr;
+    const { separator, pattern } = constr;
     if(!separator && !end) {
       this.params = [code];
     } else {
       const params = [];
       const sliceInfo = [start.length].concat(end ? -end.length : []);
       const res = code.slice(...sliceInfo);
-      let seg = '';
-      for(let i = 0, j = res.length; i < j; i++) {
-        const cur = res.charAt(i);
-        if(cur === '\\') {
-          seg += '\\' + res.charAt(++i);
-        } else {
-          if(cur === separator) {
-            params.push(seg);
-            seg = '';
+      if(!pattern) {
+        let seg = '';
+        for(let i = 0, j = res.length; i < j; i++) {
+          const cur = res.charAt(i);
+          if(cur === '\\') {
+            seg += '\\' + res.charAt(++i);
           } else {
-            seg += cur;
+            if(cur === separator) {
+              params.push(seg);
+              seg = '';
+            } else {
+              seg += cur;
+            }
           }
         }
-      }
-      if(params.length || seg) {
-        params.push(seg);
+        if(params.length || seg) {
+          params.push(seg);
+        }
+      } else {
+        let match: any[] | null = null;
+        let curCode: string = res;
+        let len: number = 0;
+        const total = res.length;
+        while(len < total && (match = curCode.match(pattern)) !== null) {
+          len += match[0].length;
+          const sep = res.charAt(len);
+          if(len < total && sep !== separator) {
+            // tslint:disable-next-line:max-line-length
+            throw new Error(`unexpected separator character "${sep}" in "${curCode.slice(len)}",expect to be "${separator}"`);
+          } else {
+            len += 1;
+            curCode = curCode.slice(len);
+            params.push(match[0]);
+            pattern.lastIndex = 0;
+            this.patterns.push(match);
+          }
+        }
       }
       this.params = params;
     }
@@ -131,7 +155,7 @@ export class Dispatcher {
   protected parsers: ParserList = {};
   protected tagPairs: string[] = [];
   protected pairHash: NormalObject = {};
-  protected readonly splitor: string = ':';
+  protected readonly splitor: string = confSplitor;
   protected instances: ParserInstances = {};
   /**
    *
@@ -143,7 +167,7 @@ export class Dispatcher {
    * @memberof Dispatcher
    */
   public addParser(name: string, config: ParserConfig, parse: () => void, setting?: NormalObject): never | void {
-    const { startTag, endTag, separator } = config;
+    const { startTag, endTag, separator, pattern } = config;
     const { splitor } = this;
     if(separator === splitor) {
       return this.halt(`the parser of "${name}" can not set '${splitor}' as separator.`);
@@ -169,17 +193,16 @@ export class Dispatcher {
     }
     const startRuleSegs: string[] = [];
     const endRuleSegs: string[] = [];
-    const specialRepRule = /([()[{^$.*+?-])/g;
-    const specialRepValue = '\\$1';
+
     startTag.map((start) => {
       if(!hasRule) {
-        startRuleSegs.push(start.replace(specialRepRule, specialRepValue));
+        startRuleSegs.push(encodeRegexpChars(start));
       }
       if (endTag.length) {
         endTag.map((end) => {
           pairs.push(start + splitor + end);
           if(!hasRule) {
-            endRuleSegs.push(end.replace(specialRepRule, specialRepValue));
+            endRuleSegs.push(encodeRegexpChars(end));
           }
         });
       } else {
@@ -199,14 +222,14 @@ export class Dispatcher {
     // build rule
     if(!hasRule) {
       const hasEnd = endTag.length;
-      const endWith = `(?=${splitor.replace(specialRepRule, specialRepValue)}|$)`;
+      const endWith = `(?=${encodeSplitor}|$)`;
       const startWith = `(?:${startRuleSegs.join('|')})`;
       let context: string;
       if(hasEnd) {
         const endFilter = endRuleSegs.join('|');
-        context = `${startWith}(?:\\\\.|[^\\\\](?!${endFilter})|[^\\\\])+?(?:${endFilter}${endWith})`;
+        context = `^${startWith}(?:\\\\.|[^\\\\](?!${endFilter})|[^\\\\])+?(?:${endFilter}${endWith})`;
       } else {
-        context = `${startWith}(?:\\\\.|[^\\\\${splitor}])+?${endWith}`;
+        context = `^${startWith}(?:\\\\.|[^\\\\${splitor}])+?${endWith}`;
       }
       rule = new RegExp(context);
     }
@@ -221,6 +244,7 @@ export class Dispatcher {
       public static readonly separator: string = separator || '';
       public static readonly splitor: string = splitor;
       public static readonly rule: RegExp = rule;
+      public static readonly pattern: RegExp | null = pattern || null;
       constructor() {
         super();
         if(setting) {
@@ -259,10 +283,15 @@ export class Dispatcher {
       if(exists[type] && instance.setting.frozen) {
         throw new Error(`the config of "${type}" (${instance.code}) can not be set again.`);
       } else {
-        result[type] = {
-          ...result[type] || {},
-          ...instance.parse(),
-        };
+        const curResult = instance.parse();
+        if(typeOf(curResult) !== 'Array') {
+          result[type] = {
+            ...result[type] || {},
+            ...curResult,
+          };
+        } else {
+          result[type] = curResult;
+        }
         exists[type] = true;
       }
     }
@@ -330,6 +359,7 @@ export class Dispatcher {
     let len = exactMatched.length;
     if(len) {
       const everTested: NormalObject = {};
+      const tryTypes: string[] = [];
       while(len--) {
         const pair = exactMatched[len];
         const type = pairHash[pair];
@@ -339,6 +369,7 @@ export class Dispatcher {
         let match = null;
         const parser = parsers[type];
         const { rule } = parser;
+        tryTypes.push(type);
         if(match = context.match(rule)) {
           const instance = this.getInstance(type);
           const [ start, end ] = pair.split(splitor);
@@ -365,7 +396,7 @@ export class Dispatcher {
       if(result) {
         return result;
       } else {
-        throw new Error(error);
+        throw new Error(`${error}[tried types:${tryTypes.join(',')}]`);
       }
     } else {
       throw new Error(error);

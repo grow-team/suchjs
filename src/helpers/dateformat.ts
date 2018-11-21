@@ -1,4 +1,4 @@
-import { PrototypeMethodNames } from '@/types';
+import { PrototypeMethodNames } from '../types';
 import { capitalize } from './utils';
 /*1.形如2016/06/01,2016-06-01,2016.06.01
 2.特殊日期

@@ -1,4 +1,5 @@
-import { NormalObject } from '@/types';
+import fns from '../fns';
+import { NormalObject, ParamsFunc, ParamsFuncItem } from '../types';
 //
 export type Result<T> = T | never;
 export type ModifierFn<T> = (res: T) => T | string | never;
@@ -8,6 +9,9 @@ export default abstract class Mockit<T> {
   protected ruleFns: NormalObject = {};
   protected modifiers: string[] = [];
   protected modifierFns: NormalObject = {};
+  protected userFns: NormalObject = [];
+  protected userFnQueue: string[] = [];
+  protected userFnValues: NormalObject = {};
   protected params: NormalObject = {};
   protected generateFn: undefined | (() => Result<T>);
   protected ignoreRules: string[] = [];
@@ -17,6 +21,41 @@ export default abstract class Mockit<T> {
    */
   constructor() {
     this.init();
+    // all type support modifiers
+    this.addRule('Func', (Func: ParamsFunc) => {
+      Func.every((item: ParamsFuncItem) => {
+        const { name, params } = item;
+        const fn = fns[name];
+        if(!fn) {
+          throw new Error(`the "Func" params have used undefined function "${item.name}"`);
+        } else {
+          let needRewrite = false;
+          const confName = '__CONFIG__';
+          const varName = '__VARS__';
+          const argName = '__ARGS__';
+          const fnName = '__FN__';
+          const lastParams: string[] = [];
+          const paramValues: any[] = [];
+          let index: number = 0;
+          params.forEach((param) => {
+            const { value, variable } = param;
+            if(variable) {
+              needRewrite = true;
+              // tslint:disable-next-line:max-line-length
+              lastParams.push(`${confName}.hasOwnProperty("${value}") ? ${confName}["${value}"] : ${varName}["${value}"]`);
+            } else {
+              paramValues.push(value);
+              lastParams.push(`${argName}[${index++}]`);
+            }
+          });
+          this.userFnQueue.push(name);
+          // tslint:disable-next-line:max-line-length
+          this.userFns[name] = !needRewrite ? fn : new Function([confName, varName, fnName, argName].join(','), `return ${fnName}(${lastParams.join(',')});`);
+          this.userFnValues[name] = paramValues;
+        }
+        return true;
+      });
+    });
   }
   /**
    *

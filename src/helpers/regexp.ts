@@ -1,5 +1,5 @@
-import { isOptional, makeRandom } from '@/helpers/utils';
-import {  NormalObject } from '@/types';
+import { isOptional, makeRandom } from '../helpers/utils';
+import {  NormalObject } from '../types';
 export type Flag = 'i' | 'm' | 'g' | 'u' | 'y' | 's';
 export type FlagsHash = {
   [key in Flag]?: boolean;

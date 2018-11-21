@@ -1,5 +1,4 @@
-import { NormalObject } from '@/types';
-
+import { NormalObject } from '../types';
 export const rule = /^%([#\-+0 ]*)?([1-9]\d*)?(?:\.([1-9]\d*))?([dfeEoxXi])(%)?$/;
 const parse = (format: string) => {
   let match: (string[] | null);
@@ -75,7 +74,7 @@ const printf = (format: string | NormalObject, target: number): string | number 
         const ep = Math.pow(10, conf.digits);
         result = Math.round(target * ep) / ep;
       } else {
-        result = target > 0 ? Math.floor(target) : Math.ceil(target);
+        result = Math.round(target);
       }
       if(result < 0) {
         conf.prefix = '-';
@@ -105,7 +104,7 @@ const printf = (format: string | NormalObject, target: number): string | number 
           conf.prefix += isUpper ? '0X' : '0x';
         }
         if(isUpper) {
-          result = result.toString().toUpperCase();
+          result = result.toUpperCase();
         }
       }
       break;
@@ -140,6 +139,6 @@ const printf = (format: string | NormalObject, target: number): string | number 
   if(conf.percent) {
     result += '%';
   }
-  return result;
+  return /^[-0+ ]|[ %]$/.test(result as string) ? result : Number(result);
 };
 export default printf;
