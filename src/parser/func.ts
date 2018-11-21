@@ -27,14 +27,14 @@ const parser: ParserInstance =  {
             const plainValue = segs[3];
             const param: NormalObject = {};
             if(plainValue) {
-              if(nativeValues.indexOf(plainValue) || !isNaN(plainValue)) {
+              if(nativeValues.indexOf(plainValue) > -1 || !isNaN(plainValue)) {
                 param.value = getExp(plainValue);
               } else {
                 param.value = plainValue;
                 param.variable = true;
               }
             } else {
-              param.value = args[2];
+              param.value = segs[2];
             }
             params.push(param);
           }

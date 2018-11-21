@@ -1,9 +1,9 @@
 import { suchRule } from './config';
-import modifierFns from './fns';
-import { isFn, isOptional, makeRandom, map, typeOf } from './helpers/utils';
+import { capitalize, isFn, isOptional, makeRandom, map, typeOf } from './helpers/utils';
 import * as mockitList from './mockit';
 import Mockit from './mockit/namespace';
 import Parser from './parser';
+import store from './store';
 import { NormalObject } from './types';
 /**
  *
@@ -418,6 +418,17 @@ export default class Such {
    *
    *
    * @static
+   * @param {string} name
+   * @param {*} value
+   * @memberof Such
+   */
+  public static assign(name: string, value: any, alwaysVar: boolean = false) {
+    store(name, value, alwaysVar);
+  }
+  /**
+   *
+   *
+   * @static
    * @param {string} type
    * @param {string} fromType
    * @param {(string|MockitOptions)} options
@@ -433,6 +444,7 @@ export default class Such {
     const config: MockitOptions = argsNum === 2 && typeof opts === 'string' ? ({ param: opts } as MockitOptions) : (argsNum === 1 && typeof opts === 'function' ? { generate: opts } : opts);
     const { param, init, generateFn, generate, ignoreRules } = config;
     const params = typeof param === 'string' ? Parser.parse(param) : {};
+    const constrName = `To${capitalize(type)}`;
     if (!AllMockits.hasOwnProperty(type)) {
       // tslint:disable-next-line:max-line-length
       let klass;
@@ -444,9 +456,9 @@ export default class Such {
           throw new Error(`the defined type "${type}" what based on type of "${baseType}" is not exists.`);
         }
         // tslint:disable-next-line:max-classes-per-file
-        klass = class extends (base as {new(): any}) {
+        klass = class extends (base as {new(name: string): any}) {
           constructor() {
-            super();
+            super(constrName);
             this.ignoreRules = ignoreRules || [];
           }
           public init() {
@@ -464,7 +476,7 @@ export default class Such {
         // tslint:disable-next-line:max-classes-per-file
         klass = class extends Mockit<any> {
           constructor() {
-            super();
+            super(constrName);
             this.ignoreRules = ignoreRules || [];
           }
           public init() {
@@ -474,7 +486,7 @@ export default class Such {
             this.setParams(params, undefined);
           }
           public generate() {
-            generate.call(this, utils);
+            return generate.call(this, utils);
           }
           public test() {
             return true;

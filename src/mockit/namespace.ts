@@ -1,17 +1,14 @@
-import fns from '../fns';
+import store from '../store';
 import { NormalObject, ParamsFunc, ParamsFuncItem } from '../types';
+const { fns: globalFns, vars: globalVars, mockits } = store;
 //
 export type Result<T> = T | never;
 export type ModifierFn<T> = (res: T) => T | string | never;
 export type RuleFn = (cur: NormalObject) => void | NormalObject;
 export default abstract class Mockit<T> {
-  protected rules: string[] = [];
-  protected ruleFns: NormalObject = {};
-  protected modifiers: string[] = [];
-  protected modifierFns: NormalObject = {};
   protected userFns: NormalObject = [];
   protected userFnQueue: string[] = [];
-  protected userFnValues: NormalObject = {};
+  protected userFnParams: NormalObject = {};
   protected params: NormalObject = {};
   protected generateFn: undefined | (() => Result<T>);
   protected ignoreRules: string[] = [];
@@ -19,28 +16,37 @@ export default abstract class Mockit<T> {
    * Creates an instance of Mockit.
    * @memberof Mockit
    */
-  constructor() {
+  constructor(protected readonly constructorName: string) {
+    const constrName = constructorName || this.constructor.name;
+    if(mockits[constrName]) {
+      return;
+    }
+    mockits[constrName] = {
+      rules: [],
+      ruleFns: {},
+      modifiers: [],
+      modifierFns: {},
+    };
     this.init();
     // all type support modifiers
     this.addRule('Func', (Func: ParamsFunc) => {
       Func.every((item: ParamsFuncItem) => {
         const { name, params } = item;
-        const fn = fns[name];
+        const fn = globalFns[name];
         if(!fn) {
-          throw new Error(`the "Func" params have used undefined function "${item.name}"`);
+          throw new Error(`the "Func" params used undefined function "${item.name}"`);
         } else {
-          let needRewrite = false;
           const confName = '__CONFIG__';
           const varName = '__VARS__';
           const argName = '__ARGS__';
           const fnName = '__FN__';
-          const lastParams: string[] = [];
+          const resName = '__RESULT__';
+          const lastParams: string[] = [resName];
           const paramValues: any[] = [];
           let index: number = 0;
           params.forEach((param) => {
             const { value, variable } = param;
             if(variable) {
-              needRewrite = true;
               // tslint:disable-next-line:max-line-length
               lastParams.push(`${confName}.hasOwnProperty("${value}") ? ${confName}["${value}"] : ${varName}["${value}"]`);
             } else {
@@ -50,8 +56,8 @@ export default abstract class Mockit<T> {
           });
           this.userFnQueue.push(name);
           // tslint:disable-next-line:max-line-length
-          this.userFns[name] = !needRewrite ? fn : new Function([confName, varName, fnName, argName].join(','), `return ${fnName}(${lastParams.join(',')});`);
-          this.userFnValues[name] = paramValues;
+          this.userFns[name] = new Function([resName, confName, varName, fnName, argName].join(','), `return ${fnName}(${lastParams.join(',')});`);
+          this.userFnParams[name] = paramValues;
         }
         return true;
       });
@@ -105,7 +111,7 @@ export default abstract class Mockit<T> {
     } else if (typeof key === 'string') {
       params[key] = value;
     }
-    const { rules, ruleFns } = this;
+    const { rules, ruleFns } = mockits[this.constructorName || this.constructor.name];
     const keys = Object.keys(params);
     (keys.length > 1 ? keys.sort((a: string, b: string) => {
       return rules.indexOf(a) < rules.indexOf(b) ? 1 : -1;
@@ -144,19 +150,29 @@ export default abstract class Mockit<T> {
    * @memberof Mockit
    */
   public make(Such?: NormalObject): Result<T> {
-    const { modifiers, params } = this;
+    const { modifiers, modifierFns } = mockits[this.constructorName || this.constructor.name];
+    const { params, userFnQueue, userFns, userFnParams } = this;
     let result = typeof this.generateFn === 'function' ? this.generateFn.call(this) : this.generate();
-    for (let i = 0, j = modifiers.length; i < j; i++) {
+    let i;
+    let j = modifiers.length;
+    for (i = 0; i < j; i++) {
       const name = modifiers[i];
       if (params.hasOwnProperty(name)) {
-        const fn = this.modifierFns[name];
-        const args = [result, this.params[name]];
+        const fn = modifierFns[name];
+        const args = [result, params[name]];
         if (fn.length === 3) {
           args.push(Such);
         }
         result = fn.apply(this, args);
       }
     }
+    const { Config } = this.params;
+    for(i = 0, j = userFnQueue.length; i < j; i++) {
+      const name = userFnQueue[i];
+      const fn = userFns[name];
+      result = fn.apply(null, [ result, Config || {}, globalVars, globalFns[name], userFnParams[name]]);
+    }
+
     return result;
   }
   /**
@@ -189,15 +205,19 @@ export default abstract class Mockit<T> {
    */
   private add(type: 'rule' | 'modifier', name: string,  fn: RuleFn | ModifierFn<T>, pos?: string): never | void {
     // ignore not needed rules
-    if (this.ignoreRules.indexOf(name) > -1) {return; }
+    if (this.ignoreRules.indexOf(name) > -1) {
+      return;
+    }
+    const curName = this.constructorName || this.constructor.name;
+    const { rules, ruleFns, modifiers, modifierFns } = mockits[curName];
     let target;
     let fns;
     if (type === 'rule') {
-      target = this.rules;
-      fns = this.ruleFns;
+      target = rules;
+      fns = ruleFns;
     } else {
-      target = this.modifiers;
-      fns = this.modifierFns;
+      target = modifiers;
+      fns = modifierFns;
     }
     if (target.indexOf(name) > -1) {
       throw new Error(`${type} of ${name} already exists`);

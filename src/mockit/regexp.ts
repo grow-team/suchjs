@@ -3,8 +3,8 @@ import { NormalObject, ParamsRegexp } from '../types';
 import Mockit from './namespace';
 export default class ToRegexp extends Mockit<string> {
   private instance: RegexpParser;
-  constructor() {
-    super();
+  constructor(constructName: string) {
+    super(constructName);
   }
   public init() {
     // regexp rule

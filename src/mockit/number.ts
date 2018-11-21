@@ -18,8 +18,8 @@ const factor = (type: number) => {
   }
 };
 export default class ToNumber extends Mockit<number> {
-  constructor() {
-    super();
+  constructor(constructName: string) {
+    super(constructName);
   }
   //
   public init() {

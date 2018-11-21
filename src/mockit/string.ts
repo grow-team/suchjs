@@ -8,8 +8,8 @@ const hex2num = (hex: string): number => {
   return Number('0x' + hex);
 };
 export default class ToString extends Mockit<string> {
-  constructor() {
-    super();
+  constructor(constructName: string) {
+    super(constructName);
   }
   public init() {
     // Count Rule
@@ -59,7 +59,6 @@ export default class ToString extends Mockit<string> {
       } else {
         const uniRangeRule = /^\\u((?:[0-9a-f]{2}){2,3})\-\\u((?:[0-9a-f]{2}){2,3})$/i;
         const numRangeRule = /^(\d+)\-(\d+)$/;
-        console.log('range is', range);
         range.map((code: string, index: number) => {
           let match: null | any[];
           let firstNum: number;
