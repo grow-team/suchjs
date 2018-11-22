@@ -34,6 +34,8 @@ export abstract class ParserInterface {
    */
   public init() {
     this.params = [];
+    this.patterns = [];
+    this.code = '';
     this.tags = {
       start: '',
       end: '',

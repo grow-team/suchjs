@@ -8,14 +8,14 @@ export default class ToRegexp extends Mockit<string> {
   }
   public init() {
     // regexp rule
-    this.addRule('Regexp', (Regexp: ParamsRegexp) => {
+    this.addRule('Regexp', function(Regexp: ParamsRegexp) {
       const { rule } = Regexp;
       if(!regexpRule.test(rule)) {
         throw new Error('wrong regexp expression');
       }
     });
     // config rule
-    this.addRule('Config', (Config: NormalObject) => {
+    this.addRule('Config', function(Config: NormalObject) {
       const result: NormalObject = {};
       const rule = /(.?)\|/g;
       Object.keys(Config).forEach((key) => {

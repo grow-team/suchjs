@@ -207,8 +207,8 @@ export class Mocker {
       this.root = parent.root;
     }
     const dataType = typeOf(this.target).toLowerCase();
-    const {min, max, oneOf, alwaysArray} = this.config;
-    const {instances, datas} = this.root;
+    const { min, max, oneOf, alwaysArray } = this.config;
+    const { instances, datas } = this.root;
     const hasLength = !isNaN(min);
     this.dataType = dataType;
     if (dataType === 'array') {

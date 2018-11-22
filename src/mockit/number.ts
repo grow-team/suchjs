@@ -24,7 +24,7 @@ export default class ToNumber extends Mockit<number> {
   //
   public init() {
     // Count Rule
-    this.addRule('Count', (Count: NormalObject) => {
+    this.addRule('Count', function(Count: NormalObject) {
       const { range } = Count;
       const size = range.length;
       if (size !== 2) {
@@ -59,14 +59,14 @@ export default class ToNumber extends Mockit<number> {
       };
     });
     // Format rule
-    this.addRule('Format', (Format: NormalObject) => {
+    this.addRule('Format', function(Format: NormalObject) {
       const { format } = Format;
       if (!formatRule.test(format)) {
         throw new Error(`Wrong format rule(${format})`);
       }
     });
     // Config rule
-    this.addRule('Config', (Config: NormalObject) => {
+    this.addRule('Config', function(Config: NormalObject) {
       const allowKeys = ['step'];
       const curKeys = Object.keys(Config);
       for(let i = 0, j = curKeys.length; i < j; i++) {
@@ -84,7 +84,7 @@ export default class ToNumber extends Mockit<number> {
       }
     });
     // Format Modifier
-    this.addModifier('Format', ((result: number, Format: NormalObject) => {
+    this.addModifier('Format', (function(result: number, Format: NormalObject) {
       return printf(Format.format, result);
     }) as ModifierFn<number>);
   }
