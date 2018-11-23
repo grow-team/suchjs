@@ -9,7 +9,7 @@ const parser: ParserInstance =  {
   parse(): ParamsRegexp | never {
     const { params } = this.info();
     if(params.length !== 1) {
-      return this.halt('');
+      return this.halt(`invalid regexp rule:${params.join('')}`);
     }
     return {
       rule: params[0],

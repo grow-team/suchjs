@@ -28,7 +28,7 @@ export const map = (target: (any[] | NormalObject | string), fn: (item: any, ind
           fn(target.substr(i, 2), i);
           i++;
         } else {
-          throw new Error('错误的字符编码');
+          throw new Error('wrong code point');
         }
       } else {
         fn(target.charAt(i), i);
