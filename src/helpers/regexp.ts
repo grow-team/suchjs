@@ -1099,6 +1099,36 @@ class RegexpGroup extends RegexpPart {
     const { groups, captureIndex, captureName } = this;
     let result: string = '';
     const { flags, namedGroupConf } = conf;
+    const groupsLen = groups.length;
+    const filterGroups: RegexpPart[][] = (() => {
+      let curGroups: RegexpPart[][] = [];
+      if(captureName && captureName.indexOf(':') > -1 && namedGroupConf) {
+        const segs = captureName.split(':');
+        if(segs.length === groupsLen) {
+          const notInIndexs: number[] = [];
+          const inIndexs: number[] = [];
+          segs.forEach((key: string, index: number) => {
+            if(typeof namedGroupConf[key] === 'boolean') {
+              (namedGroupConf[key] === true ? inIndexs : notInIndexs).push(index);
+            }
+          });
+          let lastIndexs: number[] = [];
+          if(inIndexs.length) {
+            lastIndexs = inIndexs;
+          } else if(notInIndexs.length && notInIndexs.length < groupsLen) {
+            for(let i = 0; i < groupsLen; i++) {
+              if(notInIndexs.indexOf(i) < 0) {
+                lastIndexs.push(i);
+              }
+            }
+          }
+          if(lastIndexs.length) {
+            curGroups = lastIndexs.map((index) => groups[index]);
+          }
+        }
+      }
+      return curGroups;
+    })();
     if(captureName && namedGroupConf && namedGroupConf[captureName]) {
       const curRule = this.buildRule(flags);
       const index = makeRandom(0, namedGroupConf[captureName].length - 1);
@@ -1108,8 +1138,9 @@ class RegexpGroup extends RegexpPart {
         throw new Error(`the namedGroupConf of ${captureName}'s value "${result}" is not match the rule ${curRule.toString()}`);
       }
     } else {
-      const index = makeRandom(0, groups.length - 1);
-      const group = groups[index];
+      const lastGroups = filterGroups.length ? filterGroups : groups;
+      const index = makeRandom(0, lastGroups.length - 1);
+      const group = lastGroups[index];
       if(group.length === 0) {
         result = '';
       } else {
@@ -1126,7 +1157,6 @@ class RegexpGroup extends RegexpPart {
         }, '');
       }
     }
-
     if(captureName) {
       conf.namedGroupData[captureName] = result;
     }
