@@ -460,6 +460,7 @@ export default class Such {
           constructor() {
             super(constrName);
             this.ignoreRules = ignoreRules || [];
+            this.setParams(params);
           }
           public init() {
             super.init();
@@ -469,7 +470,6 @@ export default class Such {
             if (isFn(generateFn)) {
               this.reGenerate(generateFn);
             }
-            this.setParams(params);
           }
         };
       } else {
@@ -478,12 +478,12 @@ export default class Such {
           constructor() {
             super(constrName);
             this.ignoreRules = ignoreRules || [];
+            this.setParams(params, undefined);
           }
           public init() {
             if(isFn(init)) {
               init.call(this);
             }
-            this.setParams(params, undefined);
           }
           public generate() {
             return generate.call(this, utils);

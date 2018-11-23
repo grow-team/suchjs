@@ -303,7 +303,7 @@ export default class Parser {
         // match range splitor "-"
         case s.rangeSplitor:
           if(curSet) {
-            if(lastQueue.type === 'set') {
+            if(lastQueue.type === 'special' && lastQueue.special === 'setBegin') {
               // such as [-aaa]
               target = new RegexpChar(char);
             } else {

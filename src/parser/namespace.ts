@@ -1,5 +1,5 @@
 import { encodeSplitor, splitor as confSplitor } from '../config';
-import { encodeRegexpChars, typeOf } from '../helpers/utils';
+import { deepLoop, encodeRegexpChars, typeOf } from '../helpers/utils';
 import { NormalObject, ParserConfig } from '../types';
 export interface Tags {
   start: string;
@@ -22,6 +22,15 @@ export abstract class ParserInterface {
   protected setting: NormalObject = {
     frozen: true,
   };
+  protected frozenData: NormalObject = {
+    params: [],
+    patterns: [],
+    code: '',
+    tags: {
+      start: '',
+      end: '',
+    },
+  };
   // constructor
   constructor() {
     this.init();
@@ -33,13 +42,10 @@ export abstract class ParserInterface {
    * @memberof ParserInterface
    */
   public init() {
-    this.params = [];
-    this.patterns = [];
-    this.code = '';
-    this.tags = {
-      start: '',
-      end: '',
-    };
+    const { frozenData } = this;
+    Object.keys(frozenData).forEach((key) => {
+      (this as NormalObject)[key] = frozenData[key];
+    });
     return this;
   }
   /**
@@ -195,7 +201,6 @@ export class Dispatcher {
     }
     const startRuleSegs: string[] = [];
     const endRuleSegs: string[] = [];
-
     startTag.map((start) => {
       if(!hasRule) {
         startRuleSegs.push(encodeRegexpChars(start));
